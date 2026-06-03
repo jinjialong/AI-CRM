@@ -1,0 +1,4 @@
+interface:
+  display_name: "SFA CRM Frontend Style"
+  short_description: "Portable enterprise CRM plus AI copilot frontend style."
+  default_prompt: "Use $sfa-crm-frontend-style to build this UI in the same enterprise CRM plus AI copilot style."

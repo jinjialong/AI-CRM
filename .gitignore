@@ -1,0 +1,13 @@
+.next/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+data/
+dist/
+build/
+.env
+logs/
+src/frontend/.env.local
+*.egg-info/
