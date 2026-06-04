@@ -13,14 +13,30 @@
 
 - 本地代码目录：`C:\Users\Administrator\AI编程\AICRM\AI-CRM`
 
-## 3. 服务器信息
+## 3. Git 仓库约定
+
+- 当前 Git 远程仓库：`https://github.com/jinjialong/AI-CRM.git`
+- 远程名：`origin`
+- 默认主分支：`main`
+
+### 当用户说“提交 git”时，默认执行口径
+
+- 默认仓库就是：`origin -> https://github.com/jinjialong/AI-CRM.git`
+- 默认不直接提交到 `main`
+- 默认做法是：
+  - 新建一个功能分支
+  - 提交代码
+  - 推送到 `origin` 对应新分支
+- 如果用户明确说“直接推 main”或指定别的仓库，再按新指令执行
+
+## 4. 服务器信息
 
 - 服务器 IP：`123.207.221.28`
 - SSH 用户：`ubuntu`
 - 系统：`Ubuntu 22.04`
 - SSH 密码不要写进仓库，实际部署时由操作者临时提供
 
-## 4. 线上运行结构
+## 5. 线上运行结构
 
 ### 前端
 
@@ -50,7 +66,17 @@ bash -lc 'source .venv/bin/activate && exec uvicorn app.main:app --host 0.0.0.0 
 
 - 后端环境变量由线上文件 `ecosystem.config.cjs` 注入
 
-## 5. 绝对不要动的内容
+## 6. 当用户说“部署到宝塔”时的默认执行口径
+
+- 这里的“部署到宝塔”默认指的是：
+  - 把当前项目部署到服务器 `123.207.221.28`
+  - 覆盖目录：`/home/ubuntu/apps/ai-crm`
+  - 重启 PM2 应用：`ai-crm-frontend`、`ai-crm-backend`
+- 不是把项目发布到 `/www/wwwroot/` 站点目录
+- 不是切换成 Docker 部署
+- 不是重启别的项目
+
+## 7. 绝对不要动的内容
 
 - 不要动：`/www/wwwroot/yuze-cms`
 - 不要动：`/www/wwwroot/ai-competitor-simple`
@@ -60,7 +86,7 @@ bash -lc 'source .venv/bin/activate && exec uvicorn app.main:app --host 0.0.0.0 
 - 不要删除线上已有依赖目录：`.venv`、`node_modules`
 - 不要删除线上业务数据目录：`/home/ubuntu/apps/ai-crm/src/backend/data`
 
-## 6. 推荐部署原则
+## 8. 推荐部署原则
 
 - 这套部署允许直接从本地工作树发布，不要求线上 `git pull`
 - 只同步运行时代码，不同步：
@@ -74,7 +100,7 @@ bash -lc 'source .venv/bin/activate && exec uvicorn app.main:app --host 0.0.0.0 
   - `src/backend/data`
 - 覆盖目标只允许是 `/home/ubuntu/apps/ai-crm`
 
-## 7. 标准部署步骤
+## 9. 标准部署步骤
 
 ### 第一步：本地发布前校验
 
@@ -179,13 +205,13 @@ curl -s -o /dev/null -w 'openapi:%{http_code}\n' http://127.0.0.1:6101/openapi.j
 
 - 返回 `openapi:200`
 
-## 9. 线上部署口径总结
+## 10. 线上部署口径总结
 
 一句话版本：
 
 - **AI-CRM 只部署到 `/home/ubuntu/apps/ai-crm`，只重启 `ai-crm-frontend` 和 `ai-crm-backend`，不要碰 `/www/wwwroot` 下面其他项目。**
 
-## 10. 给后续代理的执行要求
+## 11. 给后续代理的执行要求
 
 - 先确认本地构建通过，再部署
 - 只覆盖 `/home/ubuntu/apps/ai-crm`
@@ -193,4 +219,4 @@ curl -s -o /dev/null -w 'openapi:%{http_code}\n' http://127.0.0.1:6101/openapi.j
 - 不要切换到 Docker 部署
 - 不要重启无关 PM2 应用
 - 部署完成后必须跑端口和 HTTP 验证
-
+- 用户说“提交 git”时，默认推到 `origin = https://github.com/jinjialong/AI-CRM.git`
