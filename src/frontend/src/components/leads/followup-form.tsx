@@ -3,21 +3,25 @@
 import { FormEvent, useState } from 'react';
 
 import { api, ApiError } from '@/lib/api';
+import { Opportunity } from '@/types';
 
 export function FollowUpForm({
   target,
   targetId,
   methods,
+  opportunities = [],
   onSuccess,
 }: {
   target: 'lead' | 'customer';
   targetId: number;
   methods: string[];
+  opportunities?: Opportunity[];
   onSuccess: () => void;
 }) {
   const [method, setMethod] = useState(methods[0] || '电话');
   const [content, setContent] = useState('');
   const [nextFollowUpTime, setNextFollowUpTime] = useState('');
+  const [opportunityId, setOpportunityId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,9 +38,11 @@ export function FollowUpForm({
         method,
         content,
         next_follow_up_time: nextFollowUpTime || null,
+        opportunity_id: target === 'customer' && opportunityId ? Number(opportunityId) : null,
       });
       setContent('');
       setNextFollowUpTime('');
+      setOpportunityId('');
       onSuccess();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '保存跟进失败');
@@ -48,7 +54,11 @@ export function FollowUpForm({
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 220px', gap: 12 }}>
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+        <select
+          value={method}
+          onChange={(e) => setMethod(e.target.value)}
+          style={{ height: 44, alignSelf: 'start' }}
+        >
           {methods.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -63,6 +73,16 @@ export function FollowUpForm({
           required
         />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {target === 'customer' && opportunities.length ? (
+            <select value={opportunityId} onChange={(e) => setOpportunityId(e.target.value)}>
+              <option value="">不关联商机</option>
+              {opportunities.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <input
             type="datetime-local"
             value={nextFollowUpTime}
@@ -91,4 +111,3 @@ export function FollowUpForm({
     </form>
   );
 }
-

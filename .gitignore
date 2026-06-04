@@ -11,3 +11,5 @@ build/
 logs/
 src/frontend/.env.local
 *.egg-info/
+.playwright-cli/
+output/

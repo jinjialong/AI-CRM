@@ -4,92 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { api, ApiError } from '@/lib/api';
-import { AssistantDraftAction, AssistantResponse, LeadCreationSkillResult } from '@/types';
+import { AssistantDraftAction, AssistantResponse } from '@/types';
 
 type Message = {
   id: string;
   side: 'user' | 'assistant';
   text: string;
 };
-
-type LeadDraft = {
-  company_name: string;
-  organization_code: string;
-  region: string;
-  source: string;
-  contacts: Array<{
-    name: string;
-    job_title: string;
-    phone: string;
-    wechat: string;
-    is_primary: boolean;
-  }>;
-};
-
-const sourceKeywords = [
-  { keyword: '转介绍', value: '转介绍' },
-  { keyword: '自然流量', value: '自然流量' },
-  { keyword: 'koc/sem', value: 'KOC/SEM' },
-  { keyword: '外呼', value: '外呼' },
-];
-
-function parseLeadDraft(message: string): LeadDraft {
-  const normalized = message.trim();
-  const phone = normalized.match(/1\d{10}/)?.[0] || '';
-  const companyName =
-    normalized.match(/(?:公司|公司名称|企业|企业名称)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)/)?.[1] || '';
-  const contactName =
-    normalized.match(/(?:联系人|联系人姓名|姓名)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)/)?.[1] || '';
-  const jobTitle =
-    normalized.match(/(?:职务|岗位|职位)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)/)?.[1] || '';
-  const wechat =
-    normalized.match(/(?:微信号|微信)[:：]?\s*(?:是|叫|为)?\s*([A-Za-z0-9_-]+)/)?.[1] || '';
-  const organizationCode =
-    normalized.match(/(?:组织机构代码|统一社会信用代码)[:：]?\s*([^\s，,。；;]+)/)?.[1] || '';
-  const region =
-    normalized.match(/(?:大区|区域)[:：]?\s*(华北|华东|华南|华中|西南|西北|东北)/)?.[1] || '';
-  const source =
-    sourceKeywords.find((item) => normalized.toLowerCase().includes(item.keyword.toLowerCase()))?.value || '';
-
-  return {
-    company_name: companyName,
-    organization_code: organizationCode,
-    region,
-    source,
-    contacts:
-      contactName || phone
-        ? [
-            {
-              name: contactName,
-              job_title: jobTitle,
-              phone,
-              wechat,
-              is_primary: true,
-            },
-          ]
-        : [],
-  };
-}
-
-function isCreateLeadIntent(message: string): boolean {
-  return /(创建|新建|新增|录入|添加).*(线索)|建.*线索/.test(message);
-}
-
-function mergeLeadDraft(base: LeadDraft, extra: LeadDraft): LeadDraft {
-  const nextContacts = extra.contacts.length
-    ? extra.contacts.map((item, index) => ({
-        ...item,
-        is_primary: index === 0,
-      }))
-    : base.contacts;
-  return {
-    company_name: extra.company_name || base.company_name,
-    organization_code: extra.organization_code || base.organization_code,
-    region: extra.region || base.region,
-    source: extra.source || base.source,
-    contacts: nextContacts.length ? nextContacts : base.contacts,
-  };
-}
 
 export function RightChatPanel({
   open,
@@ -110,7 +31,6 @@ export function RightChatPanel({
   const [result, setResult] = useState<AssistantResponse | null>(null);
   const [draftAction, setDraftAction] = useState<AssistantDraftAction | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [pendingLeadDraft, setPendingLeadDraft] = useState<LeadDraft | null>(null);
   const [leadCreationSessionId, setLeadCreationSessionId] = useState<number | null>(null);
 
   const sendMessage = async () => {
@@ -120,101 +40,21 @@ export function RightChatPanel({
     setInput('');
     setSubmitting(true);
     try {
-      const currentDraft = parseLeadDraft(currentText);
-      const mergedDraft = pendingLeadDraft
-        ? mergeLeadDraft(pendingLeadDraft, currentDraft)
-        : currentDraft;
-      const shouldHandleCreateLocally = isCreateLeadIntent(currentText) || !!pendingLeadDraft;
-
-      if (shouldHandleCreateLocally) {
-        const primaryContact = mergedDraft.contacts[0];
-        const missingFields = [
-          !mergedDraft.company_name ? '公司名称' : '',
-          !primaryContact?.name ? '联系人姓名' : '',
-          !primaryContact?.phone ? '手机号' : '',
-        ].filter(Boolean);
-
-        if (missingFields.length) {
-          setPendingLeadDraft(mergedDraft);
-          const response: AssistantResponse = {
-            message: `创建线索还缺少必要信息，请补充：${missingFields.join('、')}。`,
-            result_kind: 'message',
-            data: { missing_fields: missingFields, draft: mergedDraft },
-          };
-          setResult(response);
-          setMessages((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), side: 'assistant', text: response.message },
-          ]);
-          return;
-        }
-
-        const skillResult = await api.post<LeadCreationSkillResult>('/skills/lead-creation', {
-          company_name: mergedDraft.company_name,
-          organization_code: mergedDraft.organization_code,
-          region: mergedDraft.region,
-          source: mergedDraft.source,
-          owner_id: null,
-          notes: '由智能助手创建',
-          contacts: mergedDraft.contacts,
-          session_id: leadCreationSessionId,
-        } as unknown as Record<string, unknown>);
-        setLeadCreationSessionId(skillResult.session_id);
-        if (skillResult.status === 'missing_fields') {
-          setPendingLeadDraft(mergedDraft);
-          const response: AssistantResponse = {
-            message: `创建线索还缺少必要信息，请补充：${skillResult.missing_fields.join('、')}。`,
-            result_kind: 'message',
-            data: skillResult,
-          };
-          setResult(response);
-          setMessages((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), side: 'assistant', text: response.message },
-          ]);
-          return;
-        }
-        if (skillResult.status === 'duplicate_found') {
-          setPendingLeadDraft(mergedDraft);
-          const duplicateLead = skillResult.duplicate_lead;
-          const response: AssistantResponse = {
-            message: `我发现这条线索可能已经存在。重复线索编号是 ${duplicateLead?.id}，公司名称是 ${duplicateLead?.company_name || '未填写'}，主联系人是 ${duplicateLead?.primary_contact_name || '未填写'}，手机号是 ${duplicateLead?.primary_contact_phone || '未填写'}。你可以先查看已有线索，再决定是否放弃本次创建。`,
-            result_kind: 'message',
-            data: skillResult,
-          };
-          setResult(response);
-          setMessages((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), side: 'assistant', text: response.message },
-          ]);
-          return;
-        }
-        setPendingLeadDraft(null);
-        setLeadCreationSessionId(null);
-        const response: AssistantResponse = {
-          message: `已为你创建线索：${skillResult.lead?.company_name || ''}`,
-          result_kind: 'lead_created',
-          data: skillResult,
-        };
-        setResult(response);
-        setMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), side: 'assistant', text: response.message },
-        ]);
-        window.dispatchEvent(new Event('ai-crm-refresh'));
-        return;
-      }
-
       const response = await api.post<AssistantResponse>('/assistant/message', {
         message: currentText,
         session_id: leadCreationSessionId,
       });
       if (typeof response.data?.session_id === 'number') {
         setLeadCreationSessionId(response.data.session_id);
+      } else if (response.result_kind === 'lead_created' || response.result_kind === 'customer_created') {
+        setLeadCreationSessionId(null);
       }
       setResult(response);
       setDraftAction((response.data?.draft_action as AssistantDraftAction | undefined) || null);
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), side: 'assistant', text: response.message }]);
+      if (response.result_kind === 'lead_created' || response.result_kind === 'customer_created') {
+        window.dispatchEvent(new Event('ai-crm-refresh'));
+      }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : '助手执行失败';
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), side: 'assistant', text: message }]);
@@ -255,7 +95,6 @@ export function RightChatPanel({
       if (sessionId) {
         await api.post('/skills/lead-creation/discard', { session_id: sessionId });
       }
-      setPendingLeadDraft(null);
       setLeadCreationSessionId(null);
       const response: AssistantResponse = {
         message: '已放弃本次线索创建。',

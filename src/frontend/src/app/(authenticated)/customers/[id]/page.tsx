@@ -2,26 +2,19 @@
 
 import { useEffect, useState } from 'react';
 
-import { api, ApiError } from '@/lib/api';
-import { CustomerDetailTabs } from '@/components/customers/customer-detail-tabs';
 import { PageHeader } from '@/components/common/page-header';
-import { FollowUpForm } from '@/components/leads/followup-form';
-import {
-  CommunicationNote,
-  Contact,
-  Customer,
-  CustomerFollowUp,
-  VisitRecord,
-} from '@/types';
+import { CustomerDetailTabs } from '@/components/customers/customer-detail-tabs';
+import { api, ApiError } from '@/lib/api';
+import { CommunicationNote, Contact, Customer, Opportunity, UserInfo, VisitRecord } from '@/types';
 
 export default function CustomerDetailPage({ params }: { params: { id: string } }) {
   const customerId = Number(params.id);
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [followups, setFollowups] = useState<CustomerFollowUp[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [notes, setNotes] = useState<CommunicationNote[]>([]);
-  const [methods, setMethods] = useState<string[]>([]);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [users, setUsers] = useState<UserInfo[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -36,14 +29,16 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   const loadData = async () => {
     setLoading(true);
     try {
-      const result = await api.get<{
-        customer: Customer;
-        followups: CustomerFollowUp[];
-        contacts: Contact[];
-        visits: VisitRecord[];
-        notes: CommunicationNote[];
-        followup_methods: string[];
-      }>(`/customers/${customerId}`);
+      const [result, userResult] = await Promise.all([
+        api.get<{
+          customer: Customer;
+          contacts: Contact[];
+          visits: VisitRecord[];
+          notes: CommunicationNote[];
+          opportunities: Opportunity[];
+        }>(`/customers/${customerId}`),
+        api.get<{ items: UserInfo[] }>('/admin/users'),
+      ]);
       setCustomer(result.customer);
       setEditValues({
         customer_name: result.customer.customer_name,
@@ -52,11 +47,11 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
         company_name: result.customer.company_name,
         notes: result.customer.notes,
       });
-      setFollowups(result.followups);
       setContacts(result.contacts);
       setVisits(result.visits);
       setNotes(result.notes);
-      setMethods(result.followup_methods);
+      setOpportunities(result.opportunities);
+      setUsers(userResult.items);
       setMessage('');
     } catch (error) {
       setMessage(error instanceof ApiError ? error.message : '加载客户详情失败');
@@ -81,7 +76,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
     <div>
       <PageHeader
         title={`客户详情：${customer.customer_name}`}
-        description="客户详情支持持续跟进、联系人维护、拜访记录和沟通纪要。"
+        description="客户详情支持维护联系人、拜访记录、沟通纪要和商机。"
         actions={
           <button className="secondary-btn" onClick={() => setEditing((prev) => !prev)}>
             {editing ? '取消编辑' : '编辑客户'}
@@ -116,18 +111,35 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
               borderBottom: '1px solid var(--border-soft)',
             }}
           >
-            <input value={editValues.customer_name} onChange={(e) => setEditValues((prev) => ({ ...prev, customer_name: e.target.value }))} />
-            <input value={editValues.contact_name} onChange={(e) => setEditValues((prev) => ({ ...prev, contact_name: e.target.value }))} />
+            <input
+              value={editValues.customer_name}
+              onChange={(e) => setEditValues((prev) => ({ ...prev, customer_name: e.target.value }))}
+            />
+            <input
+              value={editValues.contact_name}
+              onChange={(e) => setEditValues((prev) => ({ ...prev, contact_name: e.target.value }))}
+            />
             <input value={editValues.phone} onChange={(e) => setEditValues((prev) => ({ ...prev, phone: e.target.value }))} />
-            <input value={editValues.company_name} onChange={(e) => setEditValues((prev) => ({ ...prev, company_name: e.target.value }))} />
-            <textarea rows={4} value={editValues.notes} onChange={(e) => setEditValues((prev) => ({ ...prev, notes: e.target.value }))} />
+            <input
+              value={editValues.company_name}
+              onChange={(e) => setEditValues((prev) => ({ ...prev, company_name: e.target.value }))}
+            />
+            <textarea
+              rows={4}
+              value={editValues.notes}
+              onChange={(e) => setEditValues((prev) => ({ ...prev, notes: e.target.value }))}
+            />
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <button
                 className="primary-btn"
                 onClick={async () => {
-                  await api.patch(`/customers/${customerId}`, editValues);
-                  setEditing(false);
-                  loadData();
+                  try {
+                    await api.patch(`/customers/${customerId}`, editValues);
+                    setEditing(false);
+                    await loadData();
+                  } catch (error) {
+                    setMessage(error instanceof ApiError ? error.message : '保存客户信息失败');
+                  }
                 }}
               >
                 保存客户信息
@@ -152,46 +164,13 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
         </div>
       </div>
 
-      <div className="card" style={{ padding: 20, marginBottom: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>新增客户跟进</div>
-        <div style={{ marginTop: 14 }}>
-          <FollowUpForm target="customer" targetId={customerId} methods={methods} onSuccess={loadData} />
-        </div>
-        <div style={{ marginTop: 22, display: 'grid', gap: 12 }}>
-          {followups.length ? (
-            followups.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  borderRadius: 10,
-                  border: '1px solid var(--border-soft)',
-                  padding: 14,
-                  background: '#fafcff',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                  <div style={{ fontWeight: 700 }}>{item.method}</div>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {new Date(item.follow_up_time).toLocaleString('zh-CN')}
-                  </div>
-                </div>
-                <div style={{ marginTop: 8, fontSize: 14, lineHeight: 1.8 }}>{item.content}</div>
-                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                  记录人：{item.created_by_name || '-'}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="muted">暂无客户跟进记录</div>
-          )}
-        </div>
-      </div>
-
       <CustomerDetailTabs
         customerId={customerId}
         contacts={contacts}
         visits={visits}
         notes={notes}
+        opportunities={opportunities}
+        users={users}
         onSuccess={loadData}
       />
     </div>

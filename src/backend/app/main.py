@@ -5,11 +5,13 @@ from sqlmodel import Session
 
 from app.core.config import settings
 from app.core.database import engine, init_database
+from app.core.migrations import run_startup_migrations
 from app.routers.admin import router as admin_router
 from app.routers.assistant import router as assistant_router
 from app.routers.auth import router as auth_router
 from app.routers.customers import router as customers_router
 from app.routers.leads import router as leads_router
+from app.routers.reports import router as reports_router
 from app.routers.skills import router as skills_router
 from app.services import init_demo_data
 
@@ -27,6 +29,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_database()
+    run_startup_migrations(engine)
     with Session(engine) as session:
         init_demo_data(session)
 
@@ -41,9 +44,21 @@ def root():
     return {"status": "ok", "service": settings.app_name}
 
 
+@app.get("/api/v1")
+def api_root():
+    return {
+        "status": "ok",
+        "service": settings.app_name,
+        "version": "v1",
+        "docs": "/docs",
+        "health": "/",
+    }
+
+
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
 app.include_router(customers_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(assistant_router, prefix="/api/v1")
 app.include_router(skills_router, prefix="/api/v1")

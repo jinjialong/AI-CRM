@@ -5,11 +5,12 @@ import { usePathname } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth-context';
 
-const navItems = [
+const baseNavItems = [
   { label: '数据概览', href: '/dashboard' },
   { label: '我的线索', href: '/leads' },
   { label: '公共线索池', href: '/public-pool' },
-  { label: '我的客户', href: '/customers' }
+  { label: '我的客户', href: '/customers' },
+  { label: '我的日报', href: '/daily-reports' },
 ];
 
 export function Sidebar() {
@@ -17,6 +18,17 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   if (!user) return null;
+
+  const navItems = [
+    ...baseNavItems,
+    ...(user.role === '销售经理' || user.role === '系统管理员'
+      ? [
+          { label: '团队日报', href: '/team/reports' },
+          { label: '团队概览', href: '/team/overview' },
+          { label: '团队线索', href: '/team/leads' },
+        ]
+      : []),
+  ];
 
   return (
     <aside

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.core.database import get_session
@@ -53,7 +53,7 @@ def update_config(
     ensure_admin(current_user)
     item = session.get(ConfigItem, item_id)
     if not item:
-        return {"detail": "配置项不存在"}
+        raise HTTPException(status_code=404, detail="配置项不存在")
     item.value = body.value
     item.updated_at = utcnow()
     session.add(item)
@@ -71,4 +71,3 @@ def list_logs(
     ensure_admin(current_user)
     logs = session.exec(select(AuditLog).order_by(AuditLog.created_at.desc())).all()
     return {"items": [serialize_audit(item) for item in logs]}
-

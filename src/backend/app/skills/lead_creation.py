@@ -176,6 +176,39 @@ def discard_lead_creation_session(session: Session, user_id: int, session_id: in
     }
 
 
+def get_lead_creation_context(session: Session, user_id: int, session_id: int | None = None) -> dict[str, Any] | None:
+    assistant_session: AssistantSession | None = None
+
+    if session_id:
+        assistant_session = session.get(AssistantSession, session_id)
+        if (
+            not assistant_session
+            or assistant_session.user_id != user_id
+            or assistant_session.scene != LEAD_CREATION_SCENE
+            or assistant_session.status != "active"
+        ):
+            assistant_session = None
+
+    if not assistant_session:
+        assistant_session = session.exec(
+            select(AssistantSession)
+            .where(AssistantSession.user_id == user_id)
+            .where(AssistantSession.scene == LEAD_CREATION_SCENE)
+            .where(AssistantSession.status == "active")
+            .order_by(AssistantSession.updated_at.desc())
+        ).first()
+
+    if not assistant_session:
+        return None
+
+    return {
+        "session_id": assistant_session.id,
+        "scene": assistant_session.scene,
+        "status": assistant_session.status,
+        "draft": load_assistant_session_draft(assistant_session),
+    }
+
+
 def execute_lead_creation_skill(
     session: Session,
     actor: User,

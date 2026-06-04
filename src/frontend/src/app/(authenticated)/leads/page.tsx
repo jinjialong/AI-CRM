@@ -93,8 +93,10 @@ export default function LeadsPage() {
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">全部状态</option>
             <option value="跟进中">跟进中</option>
-            <option value="无效">无效</option>
-            <option value="已转客户">已转客户</option>
+            <option value="必胜">必胜</option>
+            <option value="大概率">大概率</option>
+            <option value="高风险">高风险</option>
+            <option value="已丢弃">已丢弃</option>
           </select>
           <button className="secondary-btn" onClick={loadData}>
             刷新

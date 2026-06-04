@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -32,6 +32,7 @@ class LeadUpdateRequest(BaseModel):
     organization_code: Optional[str] = None
     region: Optional[str] = None
     source: Optional[str] = None
+    status: Optional[str] = None
     owner_id: Optional[int] = None
     notes: Optional[str] = None
     contacts: Optional[list[LeadContactInput]] = None
@@ -42,6 +43,7 @@ class FollowUpCreateRequest(BaseModel):
     content: str
     follow_up_time: Optional[datetime] = None
     next_follow_up_time: Optional[datetime] = None
+    opportunity_id: Optional[int] = None
 
 
 class AssignLeadRequest(BaseModel):
@@ -70,6 +72,16 @@ class ContactCreateRequest(BaseModel):
     notes: str = ""
 
 
+class ContactUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    job_title: Optional[str] = None
+    wechat: Optional[str] = None
+    email: Optional[str] = None
+    is_primary: Optional[bool] = None
+    notes: Optional[str] = None
+
+
 class VisitCreateRequest(BaseModel):
     visit_time: Optional[datetime] = None
     visit_method: str
@@ -77,6 +89,17 @@ class VisitCreateRequest(BaseModel):
     content: str
     conclusion: str = ""
     next_plan: str = ""
+    opportunity_id: Optional[int] = None
+
+
+class VisitUpdateRequest(BaseModel):
+    visit_time: Optional[datetime] = None
+    visit_method: Optional[str] = None
+    participants: Optional[str] = None
+    content: Optional[str] = None
+    conclusion: Optional[str] = None
+    next_plan: Optional[str] = None
+    opportunity_id: Optional[int] = None
 
 
 class CommunicationNoteCreateRequest(BaseModel):
@@ -85,6 +108,56 @@ class CommunicationNoteCreateRequest(BaseModel):
     counterpart: str
     content: str
     todo_items: str = ""
+    opportunity_id: Optional[int] = None
+
+
+class CommunicationNoteUpdateRequest(BaseModel):
+    communication_time: Optional[datetime] = None
+    method: Optional[str] = None
+    counterpart: Optional[str] = None
+    content: Optional[str] = None
+    todo_items: Optional[str] = None
+    opportunity_id: Optional[int] = None
+
+
+class LeadConversationCreateRequest(BaseModel):
+    source_type: str
+    content: str
+    conversation_time: Optional[datetime] = None
+
+
+class LeadKeyEventCreateRequest(BaseModel):
+    event_type: str
+    event_time: Optional[datetime] = None
+    note: str = ""
+
+
+class OpportunityCreateRequest(BaseModel):
+    source_lead_id: Optional[int] = None
+    name: str
+    amount: Optional[float] = None
+    stage: str = "初步接触"
+    status: str = "进行中"
+    expected_close_date: Optional[date] = None
+    owner_id: int
+    notes: str = ""
+
+
+class OpportunityUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    amount: Optional[float] = None
+    stage: Optional[str] = None
+    status: Optional[str] = None
+    expected_close_date: Optional[date] = None
+    owner_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class DailyReportUpsertRequest(BaseModel):
+    today_work: str
+    progress_result: str = ""
+    issues: str = ""
+    tomorrow_plan: str = ""
 
 
 class ConfigUpdateRequest(BaseModel):

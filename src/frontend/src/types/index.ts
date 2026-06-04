@@ -6,6 +6,7 @@ export interface UserInfo {
   name: string;
   role: RoleCode;
   roles: RoleCode[];
+  manager_id?: number | null;
 }
 
 export interface LeadContact {
@@ -28,6 +29,7 @@ export interface Lead {
   owner_id: number | null;
   owner_name: string | null;
   status: string;
+  is_converted?: boolean;
   is_public: boolean;
   notes: string;
   converted_customer_id: number | null;
@@ -52,6 +54,72 @@ export interface LeadFollowUp {
   created_at: string;
 }
 
+export interface LeadConversation {
+  id: number;
+  lead_id: number;
+  source_type: string;
+  content: string;
+  conversation_time: string;
+  created_by_id: number;
+  created_by_name: string | null;
+  created_at: string;
+}
+
+export interface LeadKeyEvent {
+  id: number;
+  lead_id: number;
+  event_type: string;
+  event_time: string;
+  note: string;
+  created_by_id: number;
+  created_by_name: string | null;
+  created_at: string;
+}
+
+export interface LeadAnalysisDimension {
+  code: string;
+  label: string;
+  matched: boolean;
+  evidence_count: number;
+  evidences: string[];
+}
+
+export interface LeadAnalysisCurrent {
+  score: number;
+  completed_dimension_count: number;
+  total_dimension_count: number;
+  next_best_action: string;
+  analysis_version: string;
+  analyzed_at: string;
+  dimensions: LeadAnalysisDimension[];
+  summary: string;
+  source_counts: {
+    followups: number;
+    conversations: number;
+    key_events: number;
+  };
+}
+
+export interface LeadAnalysisTrendPoint {
+  id: number;
+  lead_id: number;
+  score: number;
+  completed_dimension_count: number;
+  total_dimension_count: number;
+  analyzed_at: string;
+  trigger_type?: string;
+  trigger_label?: string;
+  score_delta?: number;
+  reason_summary?: string;
+  added_dimensions?: string[];
+  removed_dimensions?: string[];
+  source_counts?: {
+    followups: number;
+    conversations: number;
+    key_events: number;
+  };
+}
+
 export interface Customer {
   id: number;
   customer_name: string;
@@ -69,6 +137,7 @@ export interface Customer {
 export interface CustomerFollowUp {
   id: number;
   customer_id: number;
+  opportunity_id?: number | null;
   method: string;
   content: string;
   follow_up_time: string;
@@ -89,11 +158,13 @@ export interface Contact {
   is_primary: boolean;
   notes: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface VisitRecord {
   id: number;
   customer_id: number;
+  opportunity_id?: number | null;
   visit_time: string;
   visit_method: string;
   participants: string;
@@ -101,17 +172,20 @@ export interface VisitRecord {
   conclusion: string;
   next_plan: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface CommunicationNote {
   id: number;
   customer_id: number;
+  opportunity_id?: number | null;
   communication_time: string;
   method: string;
   counterpart: string;
   content: string;
   todo_items: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface AuditLog {
@@ -131,6 +205,22 @@ export interface ConfigItem {
   id: number;
   key: string;
   value: string;
+  updated_at: string;
+}
+
+export interface Opportunity {
+  id: number;
+  customer_id: number;
+  source_lead_id: number | null;
+  name: string;
+  amount: number | null;
+  stage: string;
+  status: string;
+  expected_close_date: string | null;
+  owner_id: number;
+  owner_name: string | null;
+  notes: string;
+  created_at: string;
   updated_at: string;
 }
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -13,8 +13,13 @@ ROLE_MANAGER = "销售经理"
 ROLE_ADMIN = "系统管理员"
 
 LEAD_STATUS_FOLLOWING = "跟进中"
-LEAD_STATUS_INVALID = "无效"
-LEAD_STATUS_CONVERTED = "已转客户"
+LEAD_STATUS_MUST_WIN = "必胜"
+LEAD_STATUS_HIGH_PROBABILITY = "大概率"
+LEAD_STATUS_HIGH_RISK = "高风险"
+LEAD_STATUS_DROPPED = "已丢弃"
+
+LEGACY_LEAD_STATUS_INVALID = "无效"
+LEGACY_LEAD_STATUS_CONVERTED = "已转客户"
 
 
 class User(SQLModel, table=True):
@@ -22,6 +27,7 @@ class User(SQLModel, table=True):
     login: str = Field(index=True, unique=True)
     name: str
     role: str = Field(index=True)
+    manager_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     password_hash: str
     active: bool = True
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
@@ -88,6 +94,7 @@ class Customer(SQLModel, table=True):
 class CustomerFollowUp(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     customer_id: int = Field(foreign_key="customer.id", index=True)
+    opportunity_id: Optional[int] = Field(default=None, foreign_key="opportunity.id", index=True)
     method: str
     content: str
     follow_up_time: datetime = Field(default_factory=utcnow, nullable=False)
@@ -113,6 +120,7 @@ class Contact(SQLModel, table=True):
 class VisitRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     customer_id: int = Field(foreign_key="customer.id", index=True)
+    opportunity_id: Optional[int] = Field(default=None, foreign_key="opportunity.id", index=True)
     visit_time: datetime = Field(default_factory=utcnow, nullable=False)
     visit_method: str
     participants: str = ""
@@ -126,6 +134,7 @@ class VisitRecord(SQLModel, table=True):
 class CommunicationNote(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     customer_id: int = Field(foreign_key="customer.id", index=True)
+    opportunity_id: Optional[int] = Field(default=None, foreign_key="opportunity.id", index=True)
     communication_time: datetime = Field(default_factory=utcnow, nullable=False)
     method: str
     counterpart: str
@@ -162,5 +171,79 @@ class AssistantSession(SQLModel, table=True):
     scene: str = Field(index=True)
     status: str = Field(default="active", index=True)
     draft_payload: str = Field(default="{}")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class LeadConversation(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    lead_id: int = Field(foreign_key="lead.id", index=True)
+    source_type: str = Field(index=True)
+    content: str
+    conversation_time: datetime = Field(default_factory=utcnow, nullable=False, index=True)
+    created_by_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class LeadKeyEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    lead_id: int = Field(foreign_key="lead.id", index=True)
+    event_type: str = Field(index=True)
+    event_time: datetime = Field(default_factory=utcnow, nullable=False, index=True)
+    note: str = ""
+    created_by_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class LeadAnalysisCurrent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    lead_id: int = Field(foreign_key="lead.id", index=True, unique=True)
+    score: int = 0
+    completed_dimension_count: int = 0
+    total_dimension_count: int = 7
+    dimension_payload: str = Field(default="{}")
+    next_best_action: str = ""
+    analysis_version: str = "v1-rule"
+    raw_payload: str = Field(default="{}")
+    analyzed_at: datetime = Field(default_factory=utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class LeadAnalysisSnapshot(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    lead_id: int = Field(foreign_key="lead.id", index=True)
+    score: int = 0
+    completed_dimension_count: int = 0
+    total_dimension_count: int = 7
+    snapshot_payload: str = Field(default="{}")
+    analyzed_at: datetime = Field(default_factory=utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class Opportunity(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="customer.id", index=True)
+    source_lead_id: Optional[int] = Field(default=None, foreign_key="lead.id", index=True)
+    name: str
+    amount: Optional[float] = None
+    stage: str = Field(default="初步接触", index=True)
+    status: str = Field(default="进行中", index=True)
+    expected_close_date: Optional[date] = None
+    owner_id: int = Field(foreign_key="user.id", index=True)
+    notes: str = ""
+    created_by_id: int = Field(foreign_key="user.id")
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class DailyReport(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    report_date: date = Field(index=True)
+    today_work: str
+    progress_result: str
+    issues: str = ""
+    tomorrow_plan: str
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=utcnow, nullable=False)
