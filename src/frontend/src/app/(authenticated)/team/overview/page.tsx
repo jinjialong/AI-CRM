@@ -10,6 +10,7 @@ import { StatusChip } from '@/components/common/status-chip';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { LEAD_STATUS_OPTIONS, isManagerOrAdmin } from '@/lib/crm-options';
+import { useTeamScope } from '@/lib/team-filter';
 import { Lead, UserInfo } from '@/types';
 
 type TeamOverviewLeadRow = Lead & {
@@ -50,28 +51,13 @@ function formatAmount(value: number) {
 
 export default function TeamOverviewPage() {
   const { user } = useAuth();
-  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   const [managerId, setManagerId] = useState('');
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('lead');
   const [activeStatus, setActiveStatus] = useState('');
-
-  const managers = useMemo(() => allUsers.filter((item) => item.role === '销售经理'), [allUsers]);
-  const defaultManagerId = useMemo(() => {
-    if (!user || !isManagerOrAdmin(user.role)) return '';
-    if (user.role === '销售经理') return String(user.id);
-    return managers.length ? String(managers[0].id) : '';
-  }, [user, managers]);
-
-  useEffect(() => {
-    if (!user || !isManagerOrAdmin(user.role)) return;
-    api
-      .get<{ items: UserInfo[] }>('/admin/users')
-      .then((result) => setAllUsers(result.items))
-      .catch((err) => setError(err instanceof ApiError ? err.message : '加载团队信息失败'));
-  }, [user]);
+  const { managers, defaultManagerId } = useTeamScope(user, setError);
 
   useEffect(() => {
     if (!defaultManagerId) return;
@@ -124,7 +110,7 @@ export default function TeamOverviewPage() {
 
   return (
     <div>
-      <PageHeader title="团队概览" description="从线索视角和成员视角查看团队盘子、状态分布与执行情况。" />
+      <PageHeader title="团队概览" description="从线索状态分布和团队情况两个角度查看团队盘子、状态分布与执行情况。" />
 
       {error ? (
         <div className="card" style={{ padding: 16, marginBottom: 16, color: '#cf1322' }}>
@@ -227,7 +213,7 @@ export default function TeamOverviewPage() {
                   className={viewMode === 'lead' ? 'primary-btn' : 'secondary-btn'}
                   onClick={() => setViewMode('lead')}
                 >
-                  线索视角
+                  线索列表
                 </button>
                 <button
                   type="button"
@@ -241,7 +227,7 @@ export default function TeamOverviewPage() {
                 {viewMode === 'lead'
                   ? activeStatus
                     ? `当前筛选：${activeStatus}，共 ${filteredLeadRows.length} 条`
-                    : `全部线索，共 ${filteredLeadRows.length} 条`
+                    : `点击上方状态分布可筛选线索，当前共 ${filteredLeadRows.length} 条`
                   : `成员列表，共 ${data.member_summaries.length} 人`}
               </div>
             </div>

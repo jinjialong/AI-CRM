@@ -99,7 +99,10 @@ def _lead_latest_activity_at(lead: Lead, analysis_map: dict[int, LeadAnalysisCur
         parsed = _parse_iso_datetime(payload.get("latest_activity_at"))
         if parsed:
             return parsed
-    return lead.updated_at
+    fallback = lead.updated_at
+    if fallback.tzinfo is None:
+        return fallback.replace(tzinfo=timezone.utc)
+    return fallback.astimezone(timezone.utc)
 
 
 @router.get("/reports/me")

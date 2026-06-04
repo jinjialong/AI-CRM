@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 
 import { api, ApiError } from '@/lib/api';
-import { Lead, LeadContact, UserInfo } from '@/types';
+import { Lead, UserInfo } from '@/types';
 
 type ContactFormValue = {
   name: string;
@@ -50,14 +50,12 @@ export function LeadFormModal({
   onSuccess,
   users,
   lead,
-  currentUser,
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
   users: UserInfo[];
   lead?: Lead | null;
-  currentUser: UserInfo;
 }) {
   const [values, setValues] = useState<LeadFormValues>(initialValues);
   const [submitting, setSubmitting] = useState(false);
@@ -92,7 +90,7 @@ export function LeadFormModal({
       owner_id: '0',
     });
     setError('');
-  }, [currentUser.id, lead, open]);
+  }, [lead, open]);
 
   if (!open) return null;
 

@@ -14,6 +14,7 @@ export default function PublicPoolPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [error, setError] = useState('');
   const [assigningLeadId, setAssigningLeadId] = useState<number | null>(null);
   const [targetOwnerId, setTargetOwnerId] = useState('');
@@ -21,7 +22,7 @@ export default function PublicPoolPage() {
   const loadData = async () => {
     try {
       const [leadResult, userResult] = await Promise.all([
-        api.get<{ items: Lead[] }>(`/leads/public-pool?search=${encodeURIComponent(search)}`),
+        api.get<{ items: Lead[] }>(`/leads/public-pool?search=${encodeURIComponent(appliedSearch)}`),
         api.get<{ items: UserInfo[] }>('/admin/users'),
       ]);
       setLeads(leadResult.items);
@@ -33,7 +34,16 @@ export default function PublicPoolPage() {
 
   useEffect(() => {
     loadData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [appliedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSearch = () => {
+    setAppliedSearch(search);
+  };
+
+  const handleReset = () => {
+    setSearch('');
+    setAppliedSearch('');
+  };
 
   const claimLead = async (leadId: number) => {
     await api.post(`/leads/${leadId}/claim`);
@@ -76,7 +86,7 @@ export default function PublicPoolPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.6fr 160px auto',
+            gridTemplateColumns: '320px auto',
             gap: 12,
             alignItems: 'center',
           }}
@@ -86,11 +96,18 @@ export default function PublicPoolPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="secondary-btn" onClick={loadData}>
-            刷新
-          </button>
-          <div style={{ justifySelf: 'end', fontSize: 13, color: 'var(--text-muted)' }}>
-            当前公共线索 {leads.length} 条
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="primary-btn" onClick={handleSearch}>
+                搜索
+              </button>
+              <button className="secondary-btn" onClick={handleReset}>
+                重置
+              </button>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              当前公共线索 {leads.length} 条
+            </div>
           </div>
         </div>
       </FilterCard>

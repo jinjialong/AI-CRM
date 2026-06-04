@@ -28,6 +28,7 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
 
   const loadData = async () => {
     setLoading(true);
+    setCustomer(null);
     try {
       const [result, userResult] = await Promise.all([
         api.get<{
@@ -65,6 +66,14 @@ export default function CustomerDetailPage({ params }: { params: { id: string } 
   }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || !customer) {
+    if (!loading && !customer) {
+      return (
+        <div className="card" style={{ padding: 24 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-strong)' }}>客户详情加载失败</div>
+          <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>{message || '未获取到客户数据。'}</div>
+        </div>
+      );
+    }
     return (
       <div className="card" style={{ padding: 24 }}>
         正在加载客户详情...

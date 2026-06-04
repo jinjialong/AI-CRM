@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/common/page-header';
@@ -11,9 +11,10 @@ import { Customer } from '@/types';
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
 
   const loadData = async () => {
-    const result = await api.get<{ items: Customer[] }>(`/customers?search=${encodeURIComponent(search)}`);
+    const result = await api.get<{ items: Customer[] }>(`/customers?search=${encodeURIComponent(appliedSearch)}`);
     setCustomers(result.items);
   };
 
@@ -21,15 +22,18 @@ export default function CustomersPage() {
     loadData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtered = useMemo(() => {
-    if (!search) return customers;
-    return customers.filter(
-      (item) =>
-        item.customer_name.includes(search) ||
-        item.contact_name.includes(search) ||
-        item.phone.includes(search)
-    );
-  }, [customers, search]);
+  useEffect(() => {
+    loadData();
+  }, [appliedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSearch = () => {
+    setAppliedSearch(search);
+  };
+
+  const handleReset = () => {
+    setSearch('');
+    setAppliedSearch('');
+  };
 
   return (
     <div>
@@ -42,7 +46,7 @@ export default function CustomersPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.4fr 160px auto',
+            gridTemplateColumns: '320px auto',
             gap: 12,
             alignItems: 'center',
           }}
@@ -52,11 +56,18 @@ export default function CustomersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="secondary-btn" onClick={loadData}>
-            刷新
-          </button>
-          <div style={{ justifySelf: 'end', fontSize: 13, color: 'var(--text-muted)' }}>
-            共 {filtered.length} 位客户
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="primary-btn" onClick={handleSearch}>
+                搜索
+              </button>
+              <button className="secondary-btn" onClick={handleReset}>
+                重置
+              </button>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              共 {customers.length} 位客户
+            </div>
           </div>
         </div>
       </FilterCard>
@@ -76,7 +87,7 @@ export default function CustomersPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((customer) => (
+            {customers.map((customer) => (
               <tr key={customer.id}>
                 <td>{customer.id}</td>
                 <td>{customer.customer_name}</td>
@@ -98,4 +109,3 @@ export default function CustomersPage() {
     </div>
   );
 }
-

@@ -16,7 +16,6 @@ from app.models import (
     Contact,
     Customer,
     CustomerFollowUp,
-    DailyReport,
     LEGACY_LEAD_STATUS_CONVERTED,
     LEGACY_LEAD_STATUS_INVALID,
     LeadContact,

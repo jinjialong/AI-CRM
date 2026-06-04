@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { FilterCard } from '@/components/common/filter-card';
 import { PageHeader } from '@/components/common/page-header';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { TEAM_REPORT_COMPLETION_OPTIONS, isManagerOrAdmin } from '@/lib/crm-options';
+import { useTeamScope } from '@/lib/team-filter';
 import { UserInfo } from '@/types';
 
 type TeamReportRow = {
@@ -41,19 +42,10 @@ function formatDateTime(value?: string | null) {
 
 export default function TeamReportsPage() {
   const { user } = useAuth();
-  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
-  const [members, setMembers] = useState<UserInfo[]>([]);
   const [items, setItems] = useState<TeamReportRow[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const managers = useMemo(() => allUsers.filter((item) => item.role === '销售经理'), [allUsers]);
-
-  const defaultManagerId = useMemo(() => {
-    if (!user || !isManagerOrAdmin(user.role)) return '';
-    if (user.role === '销售经理') return String(user.id);
-    return managers.length ? String(managers[0].id) : '';
-  }, [user, managers]);
+  const { managers, members, defaultManagerId, loadMembers } = useTeamScope(user, setError);
 
   const [filters, setFilters] = useState<Filters>({
     reportDate: todayString(),
@@ -69,14 +61,6 @@ export default function TeamReportsPage() {
   });
 
   useEffect(() => {
-    if (!user || !isManagerOrAdmin(user.role)) return;
-    api
-      .get<{ items: UserInfo[] }>('/admin/users')
-      .then((result) => setAllUsers(result.items))
-      .catch((err) => setError(err instanceof ApiError ? err.message : '加载团队成员失败'));
-  }, [user]);
-
-  useEffect(() => {
     if (!defaultManagerId) return;
     setFilters((prev) => {
       if (prev.managerId) return prev;
@@ -89,15 +73,8 @@ export default function TeamReportsPage() {
   }, [defaultManagerId]);
 
   useEffect(() => {
-    if (!filters.managerId) {
-      setMembers([]);
-      return;
-    }
-    api
-      .get<{ items: UserInfo[] }>(`/team/members?manager_id=${encodeURIComponent(filters.managerId)}`)
-      .then((result) => setMembers(result.items))
-      .catch((err) => setError(err instanceof ApiError ? err.message : '加载团队成员失败'));
-  }, [filters.managerId]);
+    loadMembers(filters.managerId);
+  }, [filters.managerId, loadMembers]);
 
   useEffect(() => {
     if (!appliedFilters.managerId) {

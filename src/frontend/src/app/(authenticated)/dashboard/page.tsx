@@ -24,7 +24,6 @@ export default function DashboardPage() {
 
   const activeLeads = leads.filter((item) => item.status === '跟进中').length;
   const publicPoolCount = leads.filter((item) => item.is_public).length;
-  const convertedCount = leads.filter((item) => item.status === '已转客户').length;
 
   return (
     <div>

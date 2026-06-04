@@ -1,83 +1,78 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { LEAD_STATUS_OPTIONS, isManagerOrAdmin } from '@/lib/crm-options';
+import { useTeamScope } from '@/lib/team-filter';
 import { FilterCard } from '@/components/common/filter-card';
 import { PageHeader } from '@/components/common/page-header';
 import { StatusChip } from '@/components/common/status-chip';
 import { Lead, UserInfo } from '@/types';
 
+type Filters = {
+  managerId: string;
+  memberId: string;
+  region: string;
+  status: string;
+  search: string;
+};
+
 export default function TeamLeadsPage() {
   const { user } = useAuth();
-  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
-  const [managerId, setManagerId] = useState('');
-  const [members, setMembers] = useState<UserInfo[]>([]);
   const [items, setItems] = useState<Lead[]>([]);
-  const [memberId, setMemberId] = useState('');
-  const [region, setRegion] = useState('');
-  const [status, setStatus] = useState('');
-  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
+  const { managers, members, defaultManagerId, loadMembers } = useTeamScope(user, setError);
 
-  const managers = useMemo(
-    () => allUsers.filter((item) => item.role === '销售经理'),
-    [allUsers]
-  );
+  const [filters, setFilters] = useState<Filters>({
+    managerId: '',
+    memberId: '',
+    region: '',
+    status: '',
+    search: '',
+  });
+  const [appliedFilters, setAppliedFilters] = useState<Filters>({
+    managerId: '',
+    memberId: '',
+    region: '',
+    status: '',
+    search: '',
+  });
 
   const regions = useMemo(() => {
     return Array.from(new Set(items.map((item) => item.region).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   }, [items]);
 
   useEffect(() => {
-    if (!user || !isManagerOrAdmin(user.role)) return;
-    api
-      .get<{ items: UserInfo[] }>('/admin/users')
-      .then((result) => setAllUsers(result.items))
-      .catch((err) => setError(err instanceof ApiError ? err.message : '加载团队信息失败'));
-  }, [user]);
+    if (!defaultManagerId) return;
+    setFilters((prev) => {
+      if (prev.managerId) return prev;
+      return { ...prev, managerId: defaultManagerId };
+    });
+    setAppliedFilters((prev) => {
+      if (prev.managerId) return prev;
+      return { ...prev, managerId: defaultManagerId };
+    });
+  }, [defaultManagerId]);
 
   useEffect(() => {
-    if (!user || !isManagerOrAdmin(user.role)) return;
-    if (user.role === '销售经理') {
-      setManagerId(String(user.id));
-      return;
-    }
-    if (!managerId && managers.length) {
-      setManagerId(String(managers[0].id));
-    }
-  }, [user, managers, managerId]);
-
-  useEffect(() => {
-    setMemberId('');
-  }, [managerId]);
-
-  useEffect(() => {
-    if (!managerId) {
-      setMembers([]);
-      return;
-    }
-    api
-      .get<{ items: UserInfo[] }>(`/team/members?manager_id=${encodeURIComponent(managerId)}`)
-      .then((result) => setMembers(result.items))
-      .catch((err) => setError(err instanceof ApiError ? err.message : '加载团队成员失败'));
-  }, [managerId]);
+    loadMembers(filters.managerId);
+  }, [filters.managerId, loadMembers]);
 
   const loadData = async () => {
-    if (!managerId) {
+    if (!appliedFilters.managerId) {
       setItems([]);
       return;
     }
     setError('');
     try {
-      const params = new URLSearchParams({ manager_id: managerId });
-      if (memberId) params.set('member_id', memberId);
-      if (region) params.set('region', region);
-      if (status) params.set('status', status);
-      if (search) params.set('search', search);
+      const params = new URLSearchParams({ manager_id: appliedFilters.managerId });
+      if (appliedFilters.memberId) params.set('member_id', appliedFilters.memberId);
+      if (appliedFilters.region) params.set('region', appliedFilters.region);
+      if (appliedFilters.status) params.set('status', appliedFilters.status);
+      if (appliedFilters.search) params.set('search', appliedFilters.search);
       const result = await api.get<{ items: Lead[] }>(`/team/leads?${params.toString()}`);
       setItems(result.items);
     } catch (err) {
@@ -87,7 +82,23 @@ export default function TeamLeadsPage() {
 
   useEffect(() => {
     loadData();
-  }, [managerId, memberId, region, status, search]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [appliedFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSearch = () => {
+    setAppliedFilters(filters);
+  };
+
+  const handleReset = () => {
+    const nextFilters = {
+      managerId: defaultManagerId,
+      memberId: '',
+      region: '',
+      status: '',
+      search: '',
+    };
+    setFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+  };
 
   if (!user || !isManagerOrAdmin(user.role)) {
     return (
@@ -111,19 +122,21 @@ export default function TeamLeadsPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.4fr 180px 180px 180px 180px auto',
+            gridTemplateColumns: '280px 180px 180px 180px 180px auto',
             gap: 12,
             alignItems: 'center',
           }}
         >
           <input
             placeholder="按公司、组织代码、联系人搜索"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={filters.search}
+            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
           />
           <select
-            value={managerId}
-            onChange={(e) => setManagerId(e.target.value)}
+            value={filters.managerId}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, managerId: e.target.value, memberId: '' }))
+            }
             disabled={user.role === '销售经理'}
           >
             <option value="">选择团队</option>
@@ -133,7 +146,11 @@ export default function TeamLeadsPage() {
               </option>
             ))}
           </select>
-          <select value={memberId} onChange={(e) => setMemberId(e.target.value)} disabled={!members.length}>
+          <select
+            value={filters.memberId}
+            onChange={(e) => setFilters((prev) => ({ ...prev, memberId: e.target.value }))}
+            disabled={!members.length}
+          >
             <option value="">全部成员</option>
             {members.map((item) => (
               <option key={item.id} value={item.id}>
@@ -141,7 +158,10 @@ export default function TeamLeadsPage() {
               </option>
             ))}
           </select>
-          <select value={region} onChange={(e) => setRegion(e.target.value)}>
+          <select
+            value={filters.region}
+            onChange={(e) => setFilters((prev) => ({ ...prev, region: e.target.value }))}
+          >
             <option value="">全部大区</option>
             {regions.map((item) => (
               <option key={item} value={item}>
@@ -149,7 +169,10 @@ export default function TeamLeadsPage() {
               </option>
             ))}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
+          >
             <option value="">全部状态</option>
             {LEAD_STATUS_OPTIONS.map((item) => (
               <option key={item} value={item}>
@@ -158,9 +181,14 @@ export default function TeamLeadsPage() {
             ))}
           </select>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <button className="secondary-btn" onClick={loadData}>
-              刷新
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="primary-btn" onClick={handleSearch}>
+                搜索
+              </button>
+              <button className="secondary-btn" onClick={handleReset}>
+                重置
+              </button>
+            </div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>共 {items.length} 条</div>
           </div>
         </div>
