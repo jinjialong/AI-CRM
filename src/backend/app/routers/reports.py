@@ -1,11 +1,12 @@
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.core.deps import get_current_user
+from app.lead_domain import is_converted_lead, serialize_lead
 from app.models import (
     DailyReport,
     Lead,
@@ -15,13 +16,12 @@ from app.models import (
     LEAD_STATUS_HIGH_PROBABILITY,
     LEAD_STATUS_HIGH_RISK,
     LEAD_STATUS_MUST_WIN,
-    Opportunity,
     ROLE_ADMIN,
     ROLE_MANAGER,
     User,
 )
 from app.schemas import DailyReportUpsertRequest
-from app.services import is_converted_lead, serialize_lead, serialize_user, utcnow, write_audit
+from app.services import serialize_user, utcnow, write_audit
 
 router = APIRouter()
 
@@ -32,6 +32,7 @@ LEAD_PROBABILITY_FALLBACK = {
     LEAD_STATUS_HIGH_RISK: 20,
     LEAD_STATUS_DROPPED: 0,
 }
+STALE_ACTIVITY_DAYS = 3
 
 
 def _resolve_target_manager_id(
@@ -103,6 +104,10 @@ def _lead_latest_activity_at(lead: Lead, analysis_map: dict[int, LeadAnalysisCur
     if fallback.tzinfo is None:
         return fallback.replace(tzinfo=timezone.utc)
     return fallback.astimezone(timezone.utc)
+
+
+def _is_active_team_lead(lead: Lead) -> bool:
+    return not is_converted_lead(lead) and lead.status != LEAD_STATUS_DROPPED
 
 
 @router.get("/reports/me")
@@ -230,13 +235,12 @@ def get_team_overview(
     member_ids = {item.id for item in members}
     leads = session.exec(select(Lead)).all()
     team_leads = [item for item in leads if item.owner_id in member_ids and not is_converted_lead(item)]
+    active_team_leads = [item for item in team_leads if _is_active_team_lead(item)]
     team_lead_ids = {item.id for item in team_leads}
     analyses = session.exec(select(LeadAnalysisCurrent)).all()
     analysis_map = {item.lead_id: item for item in analyses if item.lead_id in team_lead_ids}
-    opportunities = session.exec(select(Opportunity)).all()
-    member_opportunities = [
-        item for item in opportunities if item.owner_id in member_ids and item.status == "进行中"
-    ]
+    now = utcnow()
+    stale_cutoff = now - timedelta(days=STALE_ACTIVITY_DAYS)
     today = utcnow().date()
     reports = session.exec(select(DailyReport).where(DailyReport.report_date == today)).all()
     completed_user_ids = {item.user_id for item in reports if item.user_id in member_ids}
@@ -244,8 +248,8 @@ def get_team_overview(
         member.id: [item for item in team_leads if item.owner_id == member.id]
         for member in members
     }
-    opportunities_by_member_id = {
-        member.id: [item for item in member_opportunities if item.owner_id == member.id]
+    active_leads_by_member_id = {
+        member.id: [item for item in active_team_leads if item.owner_id == member.id]
         for member in members
     }
 
@@ -261,36 +265,72 @@ def get_team_overview(
         )
     lead_rows.sort(key=lambda item: item["latest_activity_at"], reverse=True)
 
-    member_summaries = [
-        {
-            "member": serialize_user(member),
-            "lead_count": len(leads_by_member_id[member.id]),
-            "report_completed": member.id in completed_user_ids,
-            "average_probability": round(
-                sum(_lead_probability(item, analysis_map) for item in leads_by_member_id[member.id])
-                / len(leads_by_member_id[member.id])
-            )
-            if len(leads_by_member_id[member.id])
-            else 0,
-            "potential_amount": round(
-                sum((item.amount or 0) for item in opportunities_by_member_id[member.id]),
-                2,
-            ),
-            "latest_activity_at": max(
-                (_lead_latest_activity_at(item, analysis_map) for item in leads_by_member_id[member.id]),
-                default=None,
-            ),
-        }
-        for member in sorted(members, key=lambda item: item.name)
-    ]
-    member_summaries.sort(
+    execution_member_rows = []
+    pipeline_member_rows = []
+    recent_active_member_count = 0
+    stale_lead_count = 0
+
+    for member in sorted(members, key=lambda item: item.name):
+        member_active_leads = active_leads_by_member_id[member.id]
+        latest_activity_at = max(
+            (_lead_latest_activity_at(item, analysis_map) for item in member_active_leads),
+            default=None,
+        )
+        stale_member_lead_count = len(
+            [
+                item
+                for item in member_active_leads
+                if _lead_latest_activity_at(item, analysis_map) < stale_cutoff
+            ]
+        )
+        if latest_activity_at and latest_activity_at >= stale_cutoff:
+            recent_active_member_count += 1
+        stale_lead_count += stale_member_lead_count
+
+        execution_member_rows.append(
+            {
+                "member": serialize_user(member),
+                "role": member.role,
+                "latest_activity_at": latest_activity_at,
+                "report_completed": member.id in completed_user_ids,
+                "active_lead_count": len(member_active_leads),
+                "stale_lead_count": stale_member_lead_count,
+            }
+        )
+
+        pipeline_member_rows.append(
+            {
+                "member": serialize_user(member),
+                "active_lead_count": len(member_active_leads),
+                "high_probability_lead_count": len(
+                    [item for item in member_active_leads if item.status == LEAD_STATUS_HIGH_PROBABILITY]
+                ),
+                "must_win_lead_count": len([item for item in member_active_leads if item.status == LEAD_STATUS_MUST_WIN]),
+                "high_risk_lead_count": len([item for item in member_active_leads if item.status == LEAD_STATUS_HIGH_RISK]),
+                "average_progress_score": round(
+                    sum(_lead_probability(item, analysis_map) for item in member_active_leads) / len(member_active_leads)
+                )
+                if member_active_leads
+                else 0,
+                "latest_activity_at": latest_activity_at,
+            }
+        )
+
+    execution_member_rows.sort(
         key=lambda item: (
-            item["lead_count"],
-            item["average_probability"],
+            item["report_completed"],
+            item["latest_activity_at"] or datetime.min.replace(tzinfo=timezone.utc),
+        )
+    )
+    pipeline_member_rows.sort(
+        key=lambda item: (
+            item["active_lead_count"],
+            item["average_progress_score"],
             item["latest_activity_at"] or datetime.min.replace(tzinfo=timezone.utc),
         ),
         reverse=True,
     )
+
     return {
         "team_manager_id": target_manager_id,
         "team_member_count": len(members),
@@ -307,7 +347,22 @@ def get_team_overview(
         "report_done_count": len(completed_user_ids),
         "report_pending_count": max(len(members) - len(completed_user_ids), 0),
         "lead_rows": lead_rows,
-        "member_summaries": member_summaries,
+        "execution_summary": {
+            "report_done_count": len(completed_user_ids),
+            "report_pending_count": max(len(members) - len(completed_user_ids), 0),
+            "recent_active_member_count": recent_active_member_count,
+            "stale_lead_count": stale_lead_count,
+        },
+        "execution_member_rows": execution_member_rows,
+        "pipeline_summary": {
+            "active_lead_count": len(active_team_leads),
+            "high_probability_lead_count": len(
+                [item for item in active_team_leads if item.status == LEAD_STATUS_HIGH_PROBABILITY]
+            ),
+            "must_win_lead_count": len([item for item in active_team_leads if item.status == LEAD_STATUS_MUST_WIN]),
+            "high_risk_lead_count": len([item for item in active_team_leads if item.status == LEAD_STATUS_HIGH_RISK]),
+        },
+        "pipeline_member_rows": pipeline_member_rows,
     }
 
 

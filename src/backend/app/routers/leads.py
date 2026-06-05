@@ -3,8 +3,23 @@ from sqlmodel import Session, or_, select
 
 from app.core.database import get_session
 from app.core.deps import get_current_user
+from app.lead_domain import (
+    convert_lead,
+    ensure_lead_access,
+    find_duplicate_lead,
+    get_lead_or_404,
+    is_converted_lead,
+    is_dropped_lead,
+    rebuild_lead_analysis,
+    replace_lead_contacts,
+    serialize_lead,
+    serialize_lead_analysis_current,
+    serialize_lead_analysis_snapshot,
+    serialize_lead_conversation,
+    serialize_lead_followup,
+    serialize_lead_key_event,
+)
 from app.models import (
-    LEGACY_LEAD_STATUS_CONVERTED,
     LEGACY_LEAD_STATUS_INVALID,
     Lead,
     LeadAnalysisCurrent,
@@ -31,22 +46,8 @@ from app.schemas import (
     LeadUpdateRequest,
 )
 from app.services import (
-    convert_lead,
-    ensure_lead_access,
-    find_duplicate_lead,
     get_config_values,
-    get_lead_or_404,
     get_user_or_404,
-    is_converted_lead,
-    is_dropped_lead,
-    rebuild_lead_analysis,
-    replace_lead_contacts,
-    serialize_lead_analysis_current,
-    serialize_lead_analysis_snapshot,
-    serialize_lead_conversation,
-    serialize_lead_key_event,
-    serialize_lead,
-    serialize_lead_followup,
     split_config_value,
     update_model,
     utcnow,
@@ -74,7 +75,7 @@ def _normalize_requested_status(status_value: str) -> str:
         return LEAD_STATUS_MUST_WIN
     if normalized == LEGACY_LEAD_STATUS_INVALID:
         return LEAD_STATUS_DROPPED
-    if normalized == LEGACY_LEAD_STATUS_CONVERTED:
+    if normalized == "已转客户":
         raise HTTPException(status_code=400, detail="请通过转客户操作完成客户转化")
     if normalized not in {
         LEAD_STATUS_FOLLOWING,

@@ -13,28 +13,50 @@
 
 - 本地代码目录：`C:\Users\Administrator\AI编程\AICRM\AI-CRM`
 
-## 3. Git 仓库约定
+## 3. 说明边界
 
-- 当前 Git 远程仓库：`https://github.com/jinjialong/AI-CRM.git`
-- 远程名：`origin`
-- 默认主分支：`main`
+- 本文档只负责说明：**如何把 AI-CRM 部署到线上服务器**
+- 不负责说明：
+  - Git 仓库提交策略
+  - 分支命名
+  - 推送到 GitHub 的规则
+- Git 相关内容请查看：
+  - [AI-CRM-上传Git说明.md](C:/Users/Administrator/AI编程/AICRM/AI-CRM/docs/部署说明/AI-CRM-上传Git说明.md)
 
-### 当用户说“提交 git”时，默认执行口径
+## 4. 服务器与面板信息
 
-- 默认仓库就是：`origin -> https://github.com/jinjialong/AI-CRM.git`
-- 默认不直接提交到 `main`
-- 默认做法是：
-  - 新建一个功能分支
-  - 提交代码
-  - 推送到 `origin` 对应新分支
-- 如果用户明确说“直接推 main”或指定别的仓库，再按新指令执行
+### SSH
 
-## 4. 服务器信息
-
-- 服务器 IP：`123.207.221.28`
+- 服务器公网 IPv4：`123.207.221.28`
 - SSH 用户：`ubuntu`
-- 系统：`Ubuntu 22.04`
-- SSH 密码不要写进仓库，实际部署时由操作者临时提供
+- SSH 端口：`22`
+- SSH 密码：`123456.Jjl`
+- SSH 连接命令：`ssh ubuntu@123.207.221.28 -p 22`
+- 系统：`Ubuntu 22.04.5 LTS`
+
+### 宝塔面板
+
+- 宝塔已安装，目录：`/www/server/panel`
+- 宝塔外网面板地址：`https://123.207.221.28:14082/9655c3f0`
+- 宝塔内网面板地址：`https://10.0.0.11:14082/9655c3f0`
+- 宝塔面板端口：`14082`
+- 宝塔面板用户名：`t8dq34fa`
+- 宝塔面板密码：当前没有从服务器直接取到明文；如果遗失，登录服务器后执行 `bt 5` 重置
+- 宝塔面板当前未绑定独立域名，默认按 `IP + 端口 + 安全入口路径` 访问
+
+### 相关端口
+
+- SSH：`22`
+- 宝塔面板：`14082`
+- Nginx：`80`
+- AI-CRM 前端：`6100`
+- AI-CRM 后端：`6101`
+- 服务器当前还监听 `888`，但当前确认的宝塔面板入口不是 `888`
+
+### 敏感信息提醒
+
+- 本文档包含敏感登录信息，只适合保存在私有环境
+- 如果要推送到 GitHub 或发给第三方，先删除或替换账号、密码、面板入口路径
 
 ## 5. 线上运行结构
 
@@ -171,7 +193,7 @@ pm2 startOrRestart /home/ubuntu/apps/ai-crm/ecosystem.config.cjs --update-env
 pm2 save
 ```
 
-## 8. 部署后验证
+## 10. 部署后验证
 
 ### 检查 PM2 状态
 
@@ -205,13 +227,13 @@ curl -s -o /dev/null -w 'openapi:%{http_code}\n' http://127.0.0.1:6101/openapi.j
 
 - 返回 `openapi:200`
 
-## 10. 线上部署口径总结
+## 11. 线上部署口径总结
 
 一句话版本：
 
 - **AI-CRM 只部署到 `/home/ubuntu/apps/ai-crm`，只重启 `ai-crm-frontend` 和 `ai-crm-backend`，不要碰 `/www/wwwroot` 下面其他项目。**
 
-## 11. 给后续代理的执行要求
+## 12. 给后续代理的执行要求
 
 - 先确认本地构建通过，再部署
 - 只覆盖 `/home/ubuntu/apps/ai-crm`
@@ -219,4 +241,3 @@ curl -s -o /dev/null -w 'openapi:%{http_code}\n' http://127.0.0.1:6101/openapi.j
 - 不要切换到 Docker 部署
 - 不要重启无关 PM2 应用
 - 部署完成后必须跑端口和 HTTP 验证
-- 用户说“提交 git”时，默认推到 `origin = https://github.com/jinjialong/AI-CRM.git`

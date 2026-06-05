@@ -3,22 +3,18 @@ from sqlmodel import Session, select
 
 from app.core.database import get_session
 from app.core.deps import get_current_user
+from app.lead_domain import convert_lead, ensure_lead_access, get_lead_or_404, is_converted_lead, serialize_lead
 from app.models import Customer, Lead, ROLE_ADMIN, ROLE_MANAGER, User
 from app.schemas import AssistantRequest
 from app.skills.lead_creation import execute_lead_creation_skill, get_lead_creation_context, raise_for_invalid_skill_result
 from app.services import (
     DEFAULT_ASSISTANT_CLARIFY_REPLY,
     build_assistant_fallback_result,
-    ensure_lead_access,
     has_meaningful_lead_slots,
-    is_converted_lead,
     merge_assistant_slots,
     parse_assistant_text,
-    convert_lead,
     get_config_values,
-    get_lead_or_404,
     serialize_customer,
-    serialize_lead,
     split_config_value,
     try_openai_assistant,
 )

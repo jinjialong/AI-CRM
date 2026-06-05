@@ -19,7 +19,6 @@ LEAD_STATUS_HIGH_RISK = "高风险"
 LEAD_STATUS_DROPPED = "已丢弃"
 
 LEGACY_LEAD_STATUS_INVALID = "无效"
-LEGACY_LEAD_STATUS_CONVERTED = "已转客户"
 
 
 class User(SQLModel, table=True):

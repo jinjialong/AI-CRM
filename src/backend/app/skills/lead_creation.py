@@ -4,9 +4,10 @@ from typing import Any
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from app.lead_domain import find_duplicate_lead, replace_lead_contacts, serialize_lead
 from app.models import AssistantSession, Lead, User
 from app.schemas import LeadContactInput
-from app.services import find_duplicate_lead, replace_lead_contacts, serialize_lead, utcnow, write_audit
+from app.services import utcnow, write_audit
 
 LEAD_CREATION_SKILL_MISSING_FIELDS = "missing_fields"
 LEAD_CREATION_SKILL_DUPLICATE_FOUND = "duplicate_found"

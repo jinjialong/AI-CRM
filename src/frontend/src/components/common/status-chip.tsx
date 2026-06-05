@@ -10,9 +10,7 @@ export function StatusChip({ status }: { status: string }) {
             ? 'chip-red'
             : status === '已丢弃'
               ? 'chip-red'
-              : status === '已转客户'
-                ? 'chip-green'
-                : status === '无效'
+              : status === '无效'
           ? 'chip-red'
           : 'chip-blue';
 
