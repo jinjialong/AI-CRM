@@ -10,6 +10,8 @@ dist/
 build/
 .env
 logs/
+*.log
+docs/AI/key.md
 src/frontend/.env.local
 src/frontend/next-start.*.log
 *.egg-info/

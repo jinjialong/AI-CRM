@@ -1,0 +1,8 @@
+{
+  "run_id": "assistant-acceptance-20260615T151112Z",
+  "dataset_id": "assistant-global-search-v1",
+  "dataset_path": "testing\\datasets\\acceptance\\assistant_global_search.json",
+  "base_url": "http://127.0.0.1:8000",
+  "started_at": "2026-06-15T15:11:12.668738Z",
+  "finished_at": "2026-06-15T15:11:19.520407Z"
+}

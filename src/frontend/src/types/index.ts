@@ -229,10 +229,251 @@ export interface AssistantDraftAction {
   payload: Record<string, unknown>;
 }
 
+export interface AssistantGlobalSearchData {
+  customers: Customer[];
+  leads: Lead[];
+  public_pool_leads: Lead[];
+  counts: {
+    customers: number;
+    leads: number;
+    public_pool_leads: number;
+  };
+  filters: {
+    search: string;
+  };
+}
+
 export interface AssistantResponse {
   message: string;
   result_kind: string;
   data: Record<string, any>;
+}
+
+export interface AssistantUsageMeta {
+  provider: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  latency_ms: number;
+  llm_called: boolean;
+  route_source: string;
+  fallback_used: boolean;
+  result_kind: string;
+  llm_intent: string;
+  final_intent: string;
+}
+
+export interface TokenMonitorSummary {
+  total_tokens: number;
+  total_request_count: number;
+  avg_total_tokens: number;
+  avg_session_tokens: number;
+  avg_latency_ms: number;
+  fallback_rate: number;
+  model_recovery_rate: number;
+  pass_rate: number;
+  avg_prompt_tokens: number;
+  avg_completion_tokens: number;
+}
+
+export interface TokenTrendPoint {
+  bucket_label: string;
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  avg_latency_ms: number;
+}
+
+export interface TokenRouteSourceItem {
+  route_source: string;
+  count: number;
+  rate: number;
+}
+
+export interface TokenFallbackBreakdownItem {
+  reason: string;
+  count: number;
+  rate_in_fallback: number;
+}
+
+export interface TokenProcessingModeItem {
+  processing_mode: string;
+  count: number;
+  rate: number;
+}
+
+export interface TokenCapabilityDistributionItem {
+  capability: string;
+  total_tokens: number;
+  request_count: number;
+  rate: number;
+  avg_total_tokens: number;
+}
+
+export interface TokenTopCaseItem {
+  case_id: string;
+  session_id: string;
+  capability: string;
+  total_tokens: number;
+  latency_ms: number;
+  created_at: string;
+}
+
+export interface TokenTopSessionItem {
+  session_id: string;
+  capability: string;
+  total_tokens: number;
+  request_count: number;
+}
+
+export interface TokenTopCost {
+  top_capabilities: TokenCapabilityDistributionItem[];
+  top_cases: TokenTopCaseItem[];
+  top_sessions: TokenTopSessionItem[];
+}
+
+export interface TokenCaseItem {
+  case_id: string;
+  capability: string;
+  created_at: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  latency_ms: number;
+  route_source: string;
+  result_kind: string;
+  session_id: string;
+  user_name?: string;
+  fallback_used?: boolean;
+  processing_mode?: string;
+  llm_intent?: string;
+  final_intent?: string;
+}
+
+export interface TokenSessionTurn {
+  turn_no: number;
+  created_at: string;
+  input_excerpt: string;
+  result_label: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  latency_ms: number;
+}
+
+export interface TokenLinkedAction {
+  action_id: string;
+  created_at: string;
+  action_type: string;
+  result: string;
+  risk_level: string;
+  write_applied: boolean;
+}
+
+export interface TokenSessionDetail {
+  session_id: string;
+  user_name: string;
+  capability: string;
+  model: string;
+  result_kind: string;
+  route_source: string;
+  fallback_used: boolean;
+  processing_mode?: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  latency_ms: number;
+  llm_intent: string;
+  final_intent: string;
+  risk_notes: string[];
+  linked_action_ids: string[];
+  linked_actions: TokenLinkedAction[];
+  turns: TokenSessionTurn[];
+}
+
+export interface ActionBreakdownItem {
+  label: string;
+  count: number;
+}
+
+export interface AuditSummary {
+  total_action_count: number;
+  write_action_count: number;
+  high_risk_action_count: number;
+  pending_confirm_count: number;
+  failed_action_count: number;
+  action_type_breakdown: ActionBreakdownItem[];
+  risk_alerts: string[];
+}
+
+export interface AuditActionItem {
+  action_id: string;
+  created_at: string;
+  session_id: string;
+  user_name: string;
+  input_excerpt: string;
+  llm_intent: string;
+  executed_action: string;
+  target_label: string;
+  risk_level: string;
+  result: string;
+  route_source?: string;
+  fallback_used?: boolean;
+  source_page?: string;
+}
+
+export interface AuditTimelineItem {
+  label: string;
+  detail: string;
+  status?: string;
+}
+
+export interface AuditTargetObject {
+  type: string;
+  id: string;
+  label: string;
+}
+
+export interface WriteEffectItem {
+  object_type: string;
+  object_id: string;
+  object_label: string;
+  change_type: string;
+  before_summary: string;
+  after_summary: string;
+  audit_written: boolean;
+}
+
+export interface AuditActionDetail {
+  action_id: string;
+  created_at: string;
+  session_id: string;
+  user_name: string;
+  entrypoint: string;
+  page_context: string;
+  input_excerpt: string;
+  llm_intent: string;
+  final_intent: string;
+  route_source: string;
+  fallback_used: boolean;
+  risk_level: string;
+  action_type: string;
+  target_objects: AuditTargetObject[];
+  write_applied: boolean;
+  confirm_required: boolean;
+  confirm_status: string;
+  result: string;
+  timeline: AuditTimelineItem[];
+  usage_meta: AssistantUsageMeta;
+  write_effect: WriteEffectItem[];
+}
+
+export interface MonitorLoadResult<T> {
+  data: T;
+  source: 'api' | 'demo';
+  warning?: string;
 }
 
 export interface LeadCreationSkillResult {

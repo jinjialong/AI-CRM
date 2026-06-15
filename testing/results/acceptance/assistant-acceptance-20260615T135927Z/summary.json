@@ -1,0 +1,23 @@
+{
+  "total_runs": 10,
+  "pass_rate": 0.9,
+  "avg_total_tokens": 534.7,
+  "median_total_tokens": 528.5,
+  "max_total_tokens": 579,
+  "avg_latency_ms": 1488.4,
+  "median_latency_ms": 1476.5,
+  "max_latency_ms": 1848,
+  "fallback_rate": 0,
+  "cases": [
+    "CU-07",
+    "CU-08",
+    "CU-09",
+    "CU-10",
+    "CU-11",
+    "CU-12",
+    "CU-13",
+    "CU-14",
+    "CU-15",
+    "CU-16"
+  ]
+}

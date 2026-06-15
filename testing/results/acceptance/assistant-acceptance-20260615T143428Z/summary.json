@@ -1,0 +1,23 @@
+{
+  "total_runs": 65,
+  "pass_rate": 0.9230769230769231,
+  "avg_total_tokens": 366.6307692307692,
+  "median_total_tokens": 519,
+  "max_total_tokens": 769,
+  "avg_latency_ms": 1139.5692307692307,
+  "median_latency_ms": 1446,
+  "max_latency_ms": 2603,
+  "fallback_rate": 0.23076923076923078,
+  "cases": [
+    "CH-01",
+    "CL-01",
+    "CL-06",
+    "CL-09",
+    "CU-03",
+    "CV-02",
+    "CV-05",
+    "LL-04",
+    "MO-02",
+    "RW-05"
+  ]
+}

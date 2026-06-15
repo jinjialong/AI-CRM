@@ -1,0 +1,318 @@
+# Worklog
+
+## 2026-06-15
+- Compared the first-batch skill-pack plan against the current `AI-CRM` codebase.
+- Conclusion:
+  - most core packs are aligned with existing backend routes and assistant intents
+  - the main mismatch is `draft_daily_report`, which is still a planning item without a real code path
+  - customer-side code is broader than the first-batch pack scope because detail/followup/contact/visit/note/opportunity APIs already exist
+  - `query_team` boundary is usable, but `list_team_leads` currently lives in the reports router, so the pack boundary is a product decision rather than a code fact
+- Recommendation:
+  - keep the 10-pack plan as the product layer
+  - use current code as the implementation truth
+  - mark `draft_daily_report` as phase-2 unless a real backend action is added
+
+## 2026-06-15
+- Added development-ready方案 for AI assistant global search:
+  - `docs/1.2/1.2查询/1.2-AI助手综合查询开发方案.md`
+  - Decision: introduce a thin `global_search` query coordination intent for ambiguous search input such as `查一下留空测试公司`.
+  - Scope: backend query routing, reusable query helpers, response contract, front-end grouped rendering, monitor labels, and regression tests.
+  - Product rule: explicit `客户/线索/公共池` keeps single-target search; unspecified query runs customer + owned leads + public pool and returns grouped results without asking for confirmation.
+- Completed a development-readiness review for the global-search方案:
+  - added priority rules so create/convert/config flows are not stolen by global search
+  - specified replacement of the existing customer-only query override with a unified query coordinator
+  - listed all enum/prompt/context/query-intent locations that must include `global_search`
+  - added fixture and encoding cautions for regression tests
+  - confirmed the方案 is ready for implementation handoff
+- Extended the 1.2 AI assistant customer-query test document with 10 additional empty-result cases:
+  - `CU-07` to `CU-16` under `docs/1.2/1.2测试/1.2测试-AI助手测试用例集.md`
+  - focus: explicit customer search should return an empty customer list when no match exists, not a full list or a premature clarification.
+- Added acceptance dataset:
+  - `testing/datasets/acceptance/assistant_customer_empty_search.json`
+- First acceptance run exposed one real issue:
+  - `CU-16` (`查询客户联系人不存在先生电话19900001111`) was misclassified by the model as `create_lead`.
+- Fix completed:
+  - expanded local customer-query intent detection in `src/backend/app/services.py`
+  - added local override in `src/backend/app/routers/assistant.py` so clear customer-query phrasing cannot be misrouted into lead creation
+  - added unit coverage in `src/backend/tests/unit/test_assistant_skills.py`
+- Validation:
+  - `python -m compileall src/backend/app` passed
+  - `pytest src/backend/tests/unit/test_assistant_skills.py -q` passed with `19 passed`
+  - restarted local backend on `127.0.0.1:8000`
+  - acceptance run `assistant-acceptance-20260615T140347Z` passed `10/10`
+- Reran the 1.2 AI assistant third batch from document section `4.3 第三批`.
+- Added reusable UTF-8 third-batch runner:
+  - `testing/runners/acceptance/run_third_batch_acceptance.py`
+  - Reason: PowerShell inline scripts corrupted Chinese input into `?`, which made the first attempted rerun invalid.
+- Valid rerun result:
+  - result file: `testing/acceptance/third_batch_rerun_2026-06-15_20260615T221508.json`
+  - scope: 23 cases
+  - passed: 23
+  - failed: 0
+- Data hygiene:
+  - cleaned historical interfering third-batch test records before the run
+  - cleaned this run's fixture/test leads after the run
+  - verified no remaining `蓝海智能`, `Nova Tech`, `华南那家公司`, `第三批回归-*`, or related third-batch test phone records remained in `lead`
+- Reran the 1.2 AI assistant fourth batch from document section `4.4 第四批`.
+- Added fourth-batch dataset:
+  - `testing/datasets/acceptance/assistant_batch4_release_regression.json`
+  - 10 representative cases from the document, each repeated 5 times
+- Fixed acceptance runner phone-tail generation:
+  - `testing/runners/acceptance/run_assistant_acceptance.py`
+  - Reason: repeated runs within the same second could reuse the same generated phone tail and corrupt duplicate/setup scenarios.
+- Fixed query-slot merging for lead/public-pool query intents:
+  - `src/backend/app/routers/assistant.py`
+  - Added unit coverage in `src/backend/tests/unit/test_assistant_skills.py`
+  - Validation: `pytest src/backend/tests/unit/test_assistant_skills.py -q` passed with `20 passed`
+- Valid fourth-batch rerun:
+  - result folder: `testing/results/acceptance/assistant-acceptance-20260615T143428Z`
+  - total interaction turns: 65
+  - passed: 60
+  - failed: 5
+  - pass rate: 92.3%
+  - fallback rate: 23.1%
+  - remaining failed case: `CU-03` repeated 5 times
+- Remaining issue:
+  - `CU-03` document input `查一下留空测试公司` does not explicitly say `客户`; the model consistently routes it to `list_leads`, not `list_customers`.
+  - This is a real ambiguity in the test input/routing policy, not random instability.
+- Data hygiene:
+  - cleaned this run's fourth-batch business test leads/customers after the run.
+
+## 2026-06-14
+- Ran the 1.2 AI assistant third-batch test set from `docs/1.2/1.2测试/1.2测试-AI助手测试用例集.md`.
+- Scope: 23 cases from section `4.3 第三批`.
+- Result summary:
+  - passed / acceptable: 14
+  - failed / abnormal: 9
+- Main issues found:
+  - `CL-14` accepted invalid phone `12345` and created lead `#36`.
+  - `CU-06` returned all visible customers for a nonexistent-customer query.
+  - `CV-03` failed to use `context.lead_id=35` for phrase `这条线索帮我转一下客户`.
+  - `CV-09` allowed an already converted lead `#34` to enter a new conversion draft.
+  - `CF-02` and `CF-03` did not reliably return structured config data.
+  - `RW-01` wrote vague company name `华南那家公司` as lead `#38`.
+  - `RW-03` returned raw `403` for typo-like conversion input.
+  - `RW-04` returned all customers for phone-only lookup instead of filtered/empty result.
+- Data created during this run:
+  - leads `#36` to `#40`
+- Detailed summary saved at `testing/acceptance/third_batch_summary_2026-06-14.md`.
+- Follow-up fix pass completed:
+  - fixed invalid phone blocking in lead creation
+  - fixed vague company-name blocking for low-confidence phrases like `那家公司`
+  - fixed customer search fallback so nonexistent or phone-only queries no longer return full customer lists
+  - fixed detail-page context conversion so `这条线索帮我转一下客户` can use `context.lead_id`
+  - fixed already-converted leads to fail early instead of creating a new conversion draft
+  - fixed config queries (`跟进方式`, `线索来源`) to route through local structured config handling
+  - wrapped assistant HTTP business errors into assistant message responses while still recording failed audit actions
+- Cleaned third-batch dirty test data and reran the full third batch from a clean state.
+- Rerun outcome:
+  - effectively passed / acceptable: 22
+  - remaining mismatch vs document expectation: 1
+- Remaining mismatch:
+  - `CU-06` now returns a clarification message (`请提供客户名称或ID以便查询`) instead of an empty customer list. This is safer than the previous full-list bug, but it still differs from the original test-case expectation.
+
+## 2026-06-14
+- Fixed AI monitor Token detail navigation:
+  - Token session detail now opens related audit action detail in a nested drawer instead of routing the page to `/admin/ai-monitor/audit`.
+  - Added a drawer header `返回` action so users can return from audit detail to the originating Token session detail.
+  - Extended `SideDrawer` with optional `leading` and `zIndex` props for nested drawer flows.
+  - Rebuilt and restarted local frontend on `127.0.0.1:3200`; backend remains on `127.0.0.1:8000`.
+- Validation:
+  - `npm run build` passed.
+  - `http://127.0.0.1:3200/admin/ai-monitor/token` returned `200`.
+
+## 2026-06-14
+- 继续推进 1.2 AI 助手监控口径调整：
+  - 新增长期口径文档：`docs/1.2/1.2审计与toker/1.2-AI助手监控统计口径与枚举说明.md`
+  - 明确 `processing_mode` 作为主统计口径，枚举包括 `model_direct`、`model_unknown_recovery`、`model_error_recovery`、`local_only`、`pending_confirm`、`confirmed_execution`
+  - 更新 `docs/1.2/1.2审计与toker/1.2-AI助手审计与Token监控归档稿.md`，Token 页从“路由来源主视角”改为“成本和效率主视角”
+  - 后端新增 Token 监控聚合接口：`processing-modes`、`capability-distribution`、`top-cost`
+  - Token 页前端改为展示总消耗、平均单次、平均单会话、模型补救率、消耗去向分布、高消耗场景和处理方式概览
+  - 保留 `route_source` 作为详情和技术排障字段，不再作为 Token 页首页主口径
+- Validation:
+  - `pytest src/backend/tests/unit/test_assistant_skills.py -q` -> `17 passed`
+  - `npm run build` -> passed
+  - 本地后端 `127.0.0.1:8000` 与前端 `127.0.0.1:3200` 已重启
+  - 新增接口与 Token 页面连通检查通过
+
+## 2026-06-05
+- Verified and documented live host access details:
+  - SSH host `123.207.221.28`, user `ubuntu`, port `22`
+  - SSH password confirmed as `123456.Jjl`
+  - BT panel installed under `/www/server/panel`
+  - confirmed BT panel URL `https://123.207.221.28:14082/9655c3f0`
+  - confirmed BT panel username `t8dq34fa`
+  - BT panel plaintext password was not recoverable from current checks; reset path is `bt 5`
+- Updated `docs/部署说明/AI-CRM-线上部署说明.md` with the confirmed SSH, panel, and port information
+- Added a local-run operations note at `docs/部署说明/AI-CRM-本地运行约束说明.md`
+- Captured the main local environment constraint discovered during UI verification:
+  - the workspace contains multiple similar repos (`AI-CRM`, `sfa-crm-master`)
+  - old `next dev` instances and mixed ports caused page/code mismatches
+  - local validation should standardize on:
+    - repo: `AI-CRM`
+    - backend: `127.0.0.1:8000`
+    - frontend: `127.0.0.1:3200`
+    - validation mode: `build + start`
+- Why it matters:
+  - future collaborators can avoid editing one repo while viewing another running instance
+  - this reduces false judgments such as “code changed but page did not update”
+
+## 2026-06-04
+- Deployed the current AI-CRM working tree to the live host `123.207.221.28`
+- Live app root: `/home/ubuntu/apps/ai-crm`
+- Live runtime is PM2-managed, with:
+  - `ai-crm-frontend` on port `6100`
+  - `ai-crm-backend` on port `6101`
+- Sync method:
+  - uploaded a runtime-only archive from the local repo
+  - preserved server-side `.env`, database data, and unrelated PM2 apps
+  - did not touch `/www/wwwroot/*`
+- Validation after restart:
+  - frontend build succeeded on the server
+  - backend started cleanly under PM2
+  - `6100` responds and `6101/openapi.json` returns `200`
+- Next step: keep using `/home/ubuntu/apps/ai-crm` as the deployment root for future uploads
+
+## 2026-06-04
+- Closed the remaining 1.1 PRD implementation gaps after completion audit:
+  - added lead-detail status editing on the lead detail page instead of read-only status display
+  - added manager/admin team filtering controls on:
+    - `团队日报`
+    - `团队概览`
+    - `团队线索`
+  - added member/region/search/status filters for team leads
+  - added opportunity inline edit flow on the customer opportunity tab using existing `PATCH /opportunities/{id}`
+  - tightened team-scope backend permissions so sales managers cannot query other managers' teams by passing arbitrary `manager_id`
+  - extended team overview payload to include `team_manager_id` and member summary rows for front-end rendering
+- Validation completed:
+  - backend `python -m compileall src/backend/app` passed
+  - frontend `npm run lint` passed
+  - frontend `npm run build` passed
+- Current state:
+  - the previously identified 1.1 feature gaps are now closed in code and build-clean
+  - remaining confidence gap is still real UI/API manual walkthrough rather than compile/build correctness
+- Completed a follow-up integration hardening pass:
+  - verified frontend production build successfully
+  - verified backend startup/import path successfully
+  - changed `init_demo_data()` from all-or-nothing behavior to idempotent patch-up behavior
+  - fixed customer-side UI to allow optional opportunity binding on:
+    - customer followups
+    - visit records
+    - communication notes
+  - normalized opportunity date schema to use `date` instead of `datetime`
+- Validation completed:
+  - backend compile still passed after hardening changes
+  - frontend lint still passed
+  - frontend production build still passed
+- 2026-06-04
+- 完成 1.1 后续交互收口：
+  - `我的日报` 改为列表页 + `新建日报` 弹窗，字段收敛为 `日报日期` 和 `今日工作`
+  - 日报列表支持 `提交人 / 日报日期 / 创建时间 / 工作内容 / 操作`
+  - 补齐日报删除接口，前端支持新建、编辑、删除
+  - 客户详情页移除顶部 `新增客户跟进`
+  - `联系人 / 拜访记录 / 沟通纪要 / 商机` 4 个 Tab 改为右侧动态 `新建` 按钮 + 弹窗增改删查
+  - 后端新增联系人、拜访记录、沟通纪要、商机的编辑/删除接口
+- 验证完成：
+  - `python -m compileall src/backend/app`
+  - `npm run lint`
+  - `npm run build`
+  - API 顺序冒烟验证通过：日报 `PUT/GET/DELETE`、联系人 `POST/DELETE`
+- 当前运行：
+  - 前端 `http://127.0.0.1:3005`
+  - 后端 `http://127.0.0.1:8002`
+
+- 2026-06-04
+- 按 `docs/1.1/1.1.1/1.1.1-线索分析趋势详细方案.md` 落地了第一版趋势增强：
+  - 后端 `LeadAnalysisSnapshot` 序列化增加 `trigger_type / trigger_label / score_delta / reason_summary / added_dimensions / removed_dimensions / source_counts`
+  - `rebuild_lead_analysis()` 增加 trigger 入参，快照支持按变化去重
+  - `新增线索跟进`、`编辑线索`、`状态变更`、`领取/退回/收回公共线索`、`手动重算`、`新增/删除对话`、`新增关键事件` 都接入趋势重算
+  - 前端 `分析趋势` 从列表改为 SVG 折线图 + 指标摘要 + 变化明细
+- 验证完成：
+  - `python -m compileall src/backend/app`
+  - `npm run lint`
+  - `npm run build`
+  - API 冒烟通过：`POST /leads/{id}/followups` 后 `GET /leads/{id}/analysis/trend` 可返回增强后的趋势点
+- 已知剩余问题：
+  - 历史旧快照没有 trigger/reason，所以旧数据会显示为空；新生成的快照正常
+  - 中文内容在当前 PowerShell JSON 输出里仍有控制台编码乱码，但接口结构本身正常
+
+- Remaining caveat:
+  - local data verification scripts showed inconsistent lookup behavior by company name in the existing DB; this appears to be an environment/data-path verification issue rather than a blocking app compile/build issue, and should be checked later through the running UI/API instead of only ad hoc scripts
+- Completed the third implementation slice covering customer opportunities and manager/report pages:
+  - added customer opportunity APIs for list/create/update
+  - extended customer detail API to return `opportunities`
+  - added optional `opportunity_id` validation and persistence on customer followups, visits, and notes
+  - added customer-detail opportunity tab without removing existing customer tabs
+  - added report/team backend router with:
+    - my daily reports
+    - team members
+    - team daily reports
+    - team overview
+    - team leads
+  - registered the new reports router in FastAPI
+  - added front-end pages and sidebar entries for:
+    - `我的日报`
+    - `团队日报`
+    - `团队概览`
+    - `团队线索`
+- Validation completed:
+  - backend `python -m compileall` passed after reports/customer changes
+  - frontend `npm run lint` passed after new pages and sidebar changes
+- Current state: all three 1.1 tracks now have initial end-to-end code paths on top of the existing app structure
+- Completed the second implementation slice for lead-side 1.1 features:
+  - added lead analysis current/snapshot service functions
+  - added rule-based scoring and next-best-action generation
+  - added lead analysis APIs for current result, rebuild, and trend
+  - added lead conversation APIs for list/create/delete
+  - added lead key-event APIs for list/create
+  - wired conversation and key-event writes to auto-refresh lead analysis
+  - added lead-detail front-end analysis area with 4 modules:
+    - dashboard
+    - conversation records
+    - trend
+    - key events
+  - kept original lead detail info/followup structure intact and appended the new analysis area below it
+- Validation completed:
+  - backend `python -m compileall` passed after analysis API changes
+  - frontend `npm run lint` passed after lead detail UI changes
+- Current focus: move to customer opportunity support and daily-report/team-view implementation
+- Started 1.1 implementation on top of the existing codebase with a low-risk additive strategy
+- Completed the first foundational code changes:
+  - added startup migration support in `src/backend/app/core/migrations.py`
+  - connected startup migration execution in `src/backend/app/main.py`
+  - extended backend models for `manager_id`, optional `opportunity_id`, and the new 1.1 tables
+  - updated schemas for new status support and optional relation fields
+  - refactored lead compatibility logic to stop relying on `status=已转客户`
+  - updated front-end status compatibility in lead list/detail and status chip
+- Validation completed:
+  - backend `python -m compileall` passed
+  - frontend `npm run lint` passed
+- Current focus: continue with `BE-04` and `BE-05` for lead analysis, conversations, and key events
+- Added implementation-facing technical design doc: `docs/1.1/1.1-销售分析、客户商机与日报团队视图技术方案.md`
+- Locked the main 1.1 technical decisions:
+  - keep current `Next.js + FastAPI + SQLModel + SQLite` stack
+  - implement team scope through `User.manager_id`
+  - treat converted lead as relation state via `converted_customer_id`, not as `status=已转客户`
+  - add startup migration script instead of introducing `Alembic`
+  - use rule-first lead analysis with optional OpenAI enhancement
+- Expanded the implementation plan to include:
+  - new tables for lead conversations, key events, analysis current/snapshot, opportunities, and daily reports
+  - customer-side optional `opportunity_id` associations on followups, visits, and communication notes
+  - new routes for reports and team views
+- Extended the technical design to the “ready to build” level:
+  - added frozen default implementation rules to reduce re-discussion during coding
+  - added backend task list `BE-01`..`BE-08`
+  - added frontend task list `FE-01`..`FE-05`
+  - added validation tasks `QA-01`..`QA-04`
+  - added interface freeze order and completion definition
+- Why it mattered: the project now has a development-ready bridge from PRD to concrete backend/frontend work without needing to rediscover architecture decisions during coding
+- Next steps: start implementation from migration support, model changes, and lead-analysis backend APIs before moving to frontend pages
+- Consolidated separate 1.1 docs into `docs/1.1/1.1-销售分析、客户商机与日报团队视图需求文档.md`
+- Merged three tracks into one requirement baseline: lead-detail sales analysis, customer-opportunity relationship, and daily-report/team-view expansion
+- Deleted the earlier narrower lead-detail-only doc and the standalone daily-report/team-view doc
+- Reconfirmed key architecture decision: opportunity is a customer-level object, not a lead-level object
+- Added manager-side scope including `我的日报`, `团队日报`, `团队概览`, `团队线索`, and unified lead-status management
+- Added a development-ready PRD: `docs/1.1/1.1-销售分析、客户商机与日报团队视图PRD.md`
+- Why it mattered: this keeps 1.1 from splitting into disconnected requirement tracks and gives implementation a single business source of truth
+- Blocker: naming, team data model, opportunity stage enum, and analysis strategy still need final confirmation
+- Next steps: split the merged doc into implementation slices for data model, API design, and page-level tasks

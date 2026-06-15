@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 from fastapi import HTTPException
@@ -14,6 +15,16 @@ LEAD_CREATION_SKILL_DUPLICATE_FOUND = "duplicate_found"
 LEAD_CREATION_SKILL_SUCCESS = "success"
 
 LEAD_CREATION_SCENE = "lead_creation"
+
+
+def _is_valid_mobile_phone(value: str) -> bool:
+    return bool(re.fullmatch(r"1[3-9]\d{9}", str(value or "").strip()))
+
+
+def _is_vague_company_name(value: str) -> bool:
+    text = str(value or "").strip()
+    vague_markers = ["那家公司", "这家公司", "那个客户", "这个客户", "那边公司", "那家", "这家", "好像"]
+    return bool(text) and any(marker in text for marker in vague_markers)
 
 
 def _normalize_contact_item(item: LeadContactInput | dict[str, Any], index: int) -> dict[str, Any]:
@@ -77,6 +88,12 @@ def validate_lead_creation_draft(draft: dict[str, Any]) -> dict[str, Any]:
         "联系人姓名" if not primary_contact or not primary_contact.get("name") else "",
         "手机号" if not primary_contact or not primary_contact.get("phone") else "",
     ]
+    company_name = str(draft.get("company_name", "")).strip()
+    phone = str(primary_contact.get("phone", "")).strip() if primary_contact else ""
+    if _is_vague_company_name(company_name):
+        missing_fields.append("公司全称")
+    if phone and not _is_valid_mobile_phone(phone):
+        missing_fields.append("有效手机号")
     return {
         "status": LEAD_CREATION_SKILL_SUCCESS if not [item for item in missing_fields if item] else LEAD_CREATION_SKILL_MISSING_FIELDS,
         "missing_fields": [item for item in missing_fields if item],
@@ -110,22 +127,12 @@ def get_or_create_assistant_session(
     scene: str,
     session_id: int | None = None,
 ) -> AssistantSession:
-    assistant_session = None
     if session_id:
         assistant_session = session.get(AssistantSession, session_id)
         if assistant_session and assistant_session.user_id != user_id:
             assistant_session = None
-    if assistant_session:
-        return assistant_session
-    assistant_session = session.exec(
-        select(AssistantSession)
-        .where(AssistantSession.user_id == user_id)
-        .where(AssistantSession.scene == scene)
-        .where(AssistantSession.status == "active")
-        .order_by(AssistantSession.updated_at.desc())
-    ).first()
-    if assistant_session:
-        return assistant_session
+        if assistant_session:
+            return assistant_session
     assistant_session = AssistantSession(
         user_id=user_id,
         scene=scene,
@@ -176,28 +183,16 @@ def discard_lead_creation_session(session: Session, user_id: int, session_id: in
 
 
 def get_lead_creation_context(session: Session, user_id: int, session_id: int | None = None) -> dict[str, Any] | None:
-    assistant_session: AssistantSession | None = None
+    if not session_id:
+        return None
 
-    if session_id:
-        assistant_session = session.get(AssistantSession, session_id)
-        if (
-            not assistant_session
-            or assistant_session.user_id != user_id
-            or assistant_session.scene != LEAD_CREATION_SCENE
-            or assistant_session.status != "active"
-        ):
-            assistant_session = None
-
-    if not assistant_session:
-        assistant_session = session.exec(
-            select(AssistantSession)
-            .where(AssistantSession.user_id == user_id)
-            .where(AssistantSession.scene == LEAD_CREATION_SCENE)
-            .where(AssistantSession.status == "active")
-            .order_by(AssistantSession.updated_at.desc())
-        ).first()
-
-    if not assistant_session:
+    assistant_session = session.get(AssistantSession, session_id)
+    if (
+        not assistant_session
+        or assistant_session.user_id != user_id
+        or assistant_session.scene != LEAD_CREATION_SCENE
+        or assistant_session.status != "active"
+    ):
         return None
 
     return {

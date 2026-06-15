@@ -1,6 +1,7 @@
 import json
 import re
 from datetime import datetime, timezone
+from time import perf_counter
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -234,36 +235,120 @@ def serialize_audit(log: AuditLog) -> dict[str, Any]:
     }
 
 
+def build_usage_meta() -> dict[str, Any]:
+    return {
+        "provider": "openai",
+        "model": settings.openai_model,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "latency_ms": 0,
+        "llm_called": False,
+        "route_source": "",
+        "fallback_used": False,
+        "result_kind": "",
+        "http_status": None,
+        "finish_reason": "",
+        "llm_intent": "",
+        "final_intent": "",
+    }
+
+
+def normalize_usage_meta(meta: dict[str, Any] | None) -> dict[str, Any]:
+    normalized = build_usage_meta()
+    if not isinstance(meta, dict):
+        return normalized
+
+    for key in ["provider", "model", "route_source", "result_kind", "finish_reason", "llm_intent", "final_intent"]:
+        value = meta.get(key)
+        if value is not None:
+            normalized[key] = str(value).strip()
+
+    for key in ["prompt_tokens", "completion_tokens", "total_tokens", "latency_ms", "http_status"]:
+        value = meta.get(key)
+        try:
+            normalized[key] = int(value) if value is not None else normalized[key]
+        except (TypeError, ValueError):
+            pass
+
+    for key in ["llm_called", "fallback_used"]:
+        normalized[key] = bool(meta.get(key))
+
+    return normalized
+
+
 def parse_assistant_text(message: str) -> dict[str, Any]:
-    phone_match = re.search(r"1\d{10}", message)
-    contact_match = re.search(r"(联系人姓名|联系人|姓名)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", message)
-    job_title_match = re.search(r"(职务|岗位|职位)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", message)
-    wechat_match = re.search(r"(微信号|微信)[:：]?\s*(?:是|叫|为)?\s*([A-Za-z0-9_\-]+)", message)
     company_match = re.search(r"(公司名称|公司|企业名称|企业)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", message)
     org_code_match = re.search(r"(组织机构代码|统一社会信用代码)[:：]?\s*([^\s，,。；;]+)", message)
     region_match = re.search(r"(大区|区域)[:：]?\s*(华北|华东|华南|华中|西南|西北|东北)", message)
     source_match = re.search(r"(来源)[:：]?\s*(转介绍|自然流量|KOC/SEM|外呼)", message)
     lead_id_match = re.search(r"(线索|客户)\s*#?(\d+)", message)
-    contact_name = contact_match.group(2) if contact_match else ""
-    phone = phone_match.group(0) if phone_match else ""
+    notes_match = re.search(r"(备注|说明|补充说明)[:：]?\s*([^\n]+)$", message)
+    status_value = ""
+    for candidate in ["跟进中", "必赢", "必胜", "大概率", "高风险", "已丢弃"]:
+        if candidate in message:
+            status_value = "必胜" if candidate == "必赢" else candidate
+            break
+    contacts = extract_contacts_from_message(message)
     return {
         "company_name": company_match.group(2) if company_match else "",
         "organization_code": org_code_match.group(2) if org_code_match else "",
         "region": region_match.group(2) if region_match else "",
         "source": source_match.group(2) if source_match else "",
-        "contacts": [
-            {
-                "name": contact_name,
-                "job_title": job_title_match.group(2) if job_title_match else "",
-                "phone": phone,
-                "wechat": wechat_match.group(2) if wechat_match else "",
-                "is_primary": True,
-            }
-        ]
-        if contact_name or phone
-        else [],
+        "status": status_value,
+        "notes": notes_match.group(2).strip() if notes_match else "",
+        "contacts": contacts,
         "target_id": int(lead_id_match.group(2)) if lead_id_match else None,
     }
+
+
+def extract_contacts_from_message(message: str) -> list[dict[str, Any]]:
+    contacts: list[dict[str, Any]] = []
+    contact_block_pattern = re.compile(
+        r"(联系人(?:姓名)?[:：]?\s*(?:是|叫|为)?\s*[^\s，,。；;]+.*?)(?=联系人(?:姓名)?[:：]?|$)"
+    )
+    blocks = [match.group(1) for match in contact_block_pattern.finditer(message)]
+
+    def parse_contact_block(block: str, index: int) -> dict[str, Any] | None:
+        name_match = re.search(r"(联系人(?:姓名)?|姓名)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", block)
+        phone_match = re.search(r"(手机号|手机|电话)[:：]?\s*(1\d{10})", block)
+        job_title_match = re.search(r"(职务|岗位|职位)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", block)
+        wechat_match = re.search(r"(微信号|微信)[:：]?\s*(?:是|叫|为)?\s*([A-Za-z0-9_\-]+)", block)
+        if not name_match and not phone_match:
+            return None
+        return {
+            "name": name_match.group(2) if name_match else "",
+            "job_title": job_title_match.group(2) if job_title_match else "",
+            "phone": phone_match.group(2) if phone_match else "",
+            "wechat": wechat_match.group(2) if wechat_match else "",
+            "is_primary": index == 0,
+        }
+
+    for index, block in enumerate(blocks):
+        parsed = parse_contact_block(block, index)
+        if parsed:
+            contacts.append(parsed)
+
+    if contacts:
+        return contacts
+
+    phone_match = re.search(r"1\d{10}", message)
+    contact_match = re.search(r"(联系人姓名|联系人|姓名)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", message)
+    job_title_match = re.search(r"(职务|岗位|职位)[:：]?\s*(?:是|叫|为)?\s*([^\s，,。；;]+)", message)
+    wechat_match = re.search(r"(微信号|微信)[:：]?\s*(?:是|叫|为)?\s*([A-Za-z0-9_\-]+)", message)
+    contact_name = contact_match.group(2) if contact_match else ""
+    phone = phone_match.group(0) if phone_match else ""
+    if not contact_name and not phone:
+        return []
+    return [
+        {
+            "name": contact_name,
+            "job_title": job_title_match.group(2) if job_title_match else "",
+            "phone": phone,
+            "wechat": wechat_match.group(2) if wechat_match else "",
+            "is_primary": True,
+        }
+    ]
 
 
 def is_create_lead_intent(message: str) -> bool:
@@ -288,22 +373,33 @@ def is_list_public_pool_intent(message: str) -> bool:
 
 
 def is_list_customers_intent(message: str) -> bool:
+    text = str(message or "").strip()
     patterns = [
-        r"查询客户",
-        r"查看客户",
+        r"查询.*客户",
+        r"查看.*客户",
+        r"查.*客户",
+        r"找.*客户",
+        r"搜.*客户",
+        r"看看.*客户",
+        r"客户.*(列表|有没有|在不在|查|找|搜|看)",
+        r"有没有.*客户",
         r"我的客户",
         r"客户列表",
     ]
-    return any(re.search(pattern, message) for pattern in patterns)
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
 def is_list_leads_intent(message: str) -> bool:
     patterns = [
-        r"查询线索",
-        r"查看线索",
+        r"查询.*线索",
+        r"查看.*线索",
+        r"查.*线索",
         r"我的线索",
         r"线索列表",
         r"看看线索",
+        r"看.*线索",
+        r"哪些.*线索",
+        r"有什么.*线索",
         r"找.*线索",
     ]
     return any(re.search(pattern, message) for pattern in patterns)
@@ -315,8 +411,216 @@ def is_convert_lead_intent(message: str) -> bool:
         r"转成客户",
         r"转为客户",
         r"转换成客户",
+        r"转一下客户",
+        r"转.*客户",
+        r"转客户",
+        r"转成客户",
+        r"转为客户",
+        r"转换成客户",
     ]
     return any(re.search(pattern, message) for pattern in patterns)
+
+
+def is_show_config_intent(message: str) -> bool:
+    text = str(message or "").strip()
+    patterns = [
+        r"跟进方式",
+        r"线索来源",
+        r"来源配置",
+        r"配置.*是什么",
+        r"查看.*配置",
+        r"看看.*配置",
+    ]
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
+def is_query_intent(message: str) -> bool:
+    text = str(message or "").strip()
+    if not text or is_create_lead_intent(text) or is_convert_lead_intent(text) or is_show_config_intent(text):
+        return False
+    if is_list_public_pool_intent(text) or is_list_customers_intent(text) or is_list_leads_intent(text):
+        return True
+    patterns = [
+        r"查一下.+",
+        r"查一查.+",
+        r"查询.+",
+        r"查看.+",
+        r"查.+",
+        r"找一下.+",
+        r"找.+",
+        r"搜一下.+",
+        r"搜一搜.+",
+        r"搜.+",
+        r"看看.+",
+        r"有没有.+",
+        r"1[3-9]\d{9}.*(查|找|搜|看看)?",
+    ]
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
+def has_explicit_query_target(message: str) -> bool:
+    text = str(message or "").strip()
+    return is_list_public_pool_intent(text) or is_list_customers_intent(text) or is_list_leads_intent(text)
+
+
+def _extract_generic_search_keyword(message: str) -> str:
+    text = str(message or "").strip()
+    phone_match = re.search(r"1[3-9]\d{9}", text)
+    if phone_match:
+        return phone_match.group(0)
+
+    keyword = text
+    for token in [
+        "查一下",
+        "查一查",
+        "查询",
+        "查看",
+        "看看",
+        "找一下",
+        "搜一下",
+        "搜一搜",
+        "帮我",
+        "有没有",
+        "在不在",
+        "对应",
+        "一个",
+        "一下",
+        "我的",
+        "查",
+        "找",
+        "搜",
+        "公共线索池",
+        "公共线索",
+        "公共池",
+        "线索池",
+        "客户列表",
+        "线索列表",
+        "客户",
+        "线索",
+        "公司",
+        "企业",
+        "联系人姓名",
+        "联系人",
+        "手机号",
+        "手机",
+        "电话",
+        "叫",
+        "是",
+        "的",
+        "里",
+    ]:
+        keyword = keyword.replace(token, "")
+
+    for token in ["跟进中", "必赢", "必胜", "大概率", "高风险", "已丢弃"]:
+        keyword = keyword.replace(token, "")
+    return keyword.strip(" ，,。？?：:")
+
+
+def extract_region_filter(message: str) -> str:
+    text = str(message or "").strip()
+    explicit_match = re.search(r"(大区|区域)[:：]?\s*(华北|华东|华南|华中|西南|西北|东北)", text)
+    if explicit_match:
+        return explicit_match.group(2)
+    for region in ["华北", "华东", "华南", "华中", "西南", "西北", "东北"]:
+        if re.search(fr"{region}(的)?(公共)?线索", text) or re.search(
+            fr"{region}.*(跟进中|必赢|必胜|大概率|高风险|已丢弃).*(公共)?线索",
+            text,
+        ):
+            return region
+    return ""
+
+
+def extract_global_search_keyword(message: str) -> str:
+    return _extract_generic_search_keyword(message)
+
+
+def is_global_search_intent(message: str) -> bool:
+    return is_query_intent(message) and not has_explicit_query_target(message) and bool(extract_global_search_keyword(message))
+
+
+def resolve_query_route(message: str) -> dict[str, Any] | None:
+    text = str(message or "").strip()
+    if not is_query_intent(text):
+        return None
+
+    parsed = parse_assistant_text(text)
+    intent = ""
+    search = ""
+    if is_list_public_pool_intent(text):
+        intent = "list_public_pool"
+        search = _extract_generic_search_keyword(text)
+    elif is_list_customers_intent(text):
+        intent = "list_customers"
+        search = extract_customer_search_keyword(text) or _extract_generic_search_keyword(text)
+    elif is_list_leads_intent(text):
+        intent = "list_leads"
+        search = _extract_generic_search_keyword(text)
+    elif is_global_search_intent(text):
+        intent = "global_search"
+        search = extract_global_search_keyword(text)
+
+    if not intent:
+        return None
+    region = parsed.get("region", "") or extract_region_filter(text)
+    if intent in {"list_leads", "list_public_pool"} and search == region:
+        search = ""
+    return {
+        "intent": intent,
+        "search": search,
+        "status": parsed.get("status", ""),
+        "region": region,
+    }
+
+
+def extract_customer_search_keyword(message: str) -> str:
+    text = str(message or "").strip()
+    phone_match = re.search(r"1[3-9]\d{9}", text)
+    if phone_match:
+        return phone_match.group(0)
+
+    general_patterns = [
+        r"^(查|查询|查看|看看)?\s*(我的)?\s*客户(列表)?$",
+        r"^我的客户$",
+        r"^客户列表$",
+    ]
+    if any(re.search(pattern, text) for pattern in general_patterns):
+        return ""
+    if "客户" not in text:
+        return ""
+
+    keyword = text
+    for token in [
+        "查一下",
+        "查一查",
+        "查询",
+        "查看",
+        "看看",
+        "搜一下",
+        "搜一搜",
+        "查",
+        "找",
+        "搜",
+        "帮我",
+        "一个",
+        "一下",
+        "有没有",
+        "在不在",
+        "对应",
+        "这个",
+        "客户",
+        "联系人姓名",
+        "联系人",
+        "手机号",
+        "手机",
+        "电话",
+        "叫",
+        "是",
+        "的",
+        "应该没有",
+        "应该不存在",
+    ]:
+        keyword = keyword.replace(token, "")
+    return keyword.strip(" ，,。？?：:")
 
 
 SUPPORTED_ASSISTANT_INTENTS = {
@@ -324,6 +628,7 @@ SUPPORTED_ASSISTANT_INTENTS = {
     "list_leads",
     "list_public_pool",
     "list_customers",
+    "global_search",
     "convert_lead",
     "show_config",
     "chat",
@@ -352,6 +657,7 @@ def merge_assistant_slots(primary: dict[str, Any], secondary: dict[str, Any]) ->
         "organization_code": str(primary.get("organization_code") or secondary.get("organization_code") or "").strip(),
         "region": str(primary.get("region") or secondary.get("region") or "").strip(),
         "source": str(primary.get("source") or secondary.get("source") or "").strip(),
+        "status": str(primary.get("status") or secondary.get("status") or "").strip(),
         "owner_id": primary.get("owner_id") if primary.get("owner_id") is not None else secondary.get("owner_id"),
         "notes": str(primary.get("notes") or secondary.get("notes") or "").strip(),
         "contacts": primary.get("contacts") if primary.get("contacts") else secondary.get("contacts") or [],
@@ -369,7 +675,7 @@ def build_assistant_fallback_result(
     parsed_slots = merge_assistant_slots(parsed, current_draft)
     current_message_has_lead_slots = has_meaningful_lead_slots(parsed)
 
-    if is_create_lead_intent(message) or ("线索" in message and current_message_has_lead_slots):
+    if is_create_lead_intent(message):
         return {
             "intent": "create_lead",
             "reply": "",
@@ -426,7 +732,11 @@ def build_assistant_fallback_result(
             "intent": "list_public_pool",
             "reply": "",
             "confidence": 0.55,
-            "slots": {},
+            "slots": {
+                "company_name": parsed.get("company_name", ""),
+                "region": parsed.get("region", ""),
+                "status": parsed.get("status", ""),
+            },
             "next_action": "call_skill",
             "target_id": None,
         }
@@ -436,7 +746,10 @@ def build_assistant_fallback_result(
             "intent": "list_customers",
             "reply": "",
             "confidence": 0.55,
-            "slots": {},
+            "slots": {
+                "company_name": parsed.get("company_name", ""),
+                "contacts": parsed.get("contacts", []),
+            },
             "next_action": "call_skill",
             "target_id": None,
         }
@@ -446,7 +759,25 @@ def build_assistant_fallback_result(
             "intent": "list_leads",
             "reply": "",
             "confidence": 0.55,
-            "slots": {},
+            "slots": {
+                "company_name": parsed.get("company_name", ""),
+                "region": parsed.get("region", ""),
+                "status": parsed.get("status", ""),
+            },
+            "next_action": "call_skill",
+            "target_id": None,
+        }
+
+    if is_global_search_intent(message):
+        return {
+            "intent": "global_search",
+            "reply": "",
+            "confidence": 0.55,
+            "slots": {
+                "company_name": extract_global_search_keyword(message),
+                "region": parsed.get("region", ""),
+                "status": parsed.get("status", ""),
+            },
             "next_action": "call_skill",
             "target_id": None,
         }
@@ -494,6 +825,7 @@ def normalize_assistant_result(result: dict[str, Any]) -> dict[str, Any]:
     slots["organization_code"] = str(slots.get("organization_code", "")).strip()
     slots["region"] = str(slots.get("region", "")).strip()
     slots["source"] = str(slots.get("source", "")).strip()
+    slots["status"] = str(slots.get("status", "")).strip()
     slots["notes"] = str(slots.get("notes", "")).strip()
 
     reply = str(result.get("reply", "")).strip()
@@ -527,16 +859,28 @@ async def try_openai_assistant(
     message: str,
     *,
     context: dict[str, Any] | None = None,
-) -> dict[str, Any] | None:
+) -> dict[str, Any]:
+    usage_meta = build_usage_meta()
     if not settings.openai_api_key:
-        return None
+        return {
+            "result": None,
+            "usage_meta": usage_meta,
+            "error_meta": {"type": "MissingApiKey", "message": "OPENAI_API_KEY not configured"},
+        }
 
     context_json = json.dumps(context or {}, ensure_ascii=False)
     system_prompt = (
         "你是一个中文 CRM 助手。"
         "你负责先理解用户意图，再决定是直接回复还是调用 CRM skill。"
-        "你只能识别以下 intent：create_lead、list_leads、list_public_pool、list_customers、convert_lead、show_config、chat、unknown。"
+        "你只能识别以下 intent：create_lead、list_leads、list_public_pool、list_customers、global_search、convert_lead、show_config、chat、unknown。"
         "请只返回 JSON，不要返回 markdown。"
+        "普通查询类短句要优先理解为业务意图，不要轻易返回 unknown。"
+        "例如：'我的客户'、'看客户'、'查客户'、'客户列表' 应识别为 list_customers。"
+        "例如：'我的线索'、'看线索'、'查线索'、'线索列表' 应识别为 list_leads。"
+        "例如：'公共线索池'、'公共池'、'公共线索' 应识别为 list_public_pool。"
+        "例如：'查一下华北科技'、'找一下某公司'、'搜一下张三' 未明确客户或线索时，应识别为 global_search。"
+        "例如：'看看配置'、'查看配置'、'系统配置' 应识别为 show_config。"
+        "只有在既不是业务查询，也不是创建线索、转客户、配置查询、普通闲聊时，才返回 unknown。"
         "如果用户是在补充创建线索缺失信息，你要结合 context.current_lead_creation。"
         "如果 intent 是 create_lead，请尽量把线索字段写进 slots。"
         "如果 intent 是 convert_lead，请尽量从用户话里识别 target_id。"
@@ -563,6 +907,8 @@ async def try_openai_assistant(
         "Content-Type": "application/json",
     }
 
+    started_at = perf_counter()
+    response_status: int | None = None
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.post(
@@ -570,15 +916,45 @@ async def try_openai_assistant(
                 headers=headers,
                 json=payload,
             )
+            response_status = response.status_code
             response.raise_for_status()
             data = response.json()
+            usage = data.get("usage") if isinstance(data, dict) else {}
             content = data["choices"][0]["message"]["content"]
+            usage_meta.update(
+                {
+                    "llm_called": True,
+                    "prompt_tokens": int((usage or {}).get("prompt_tokens") or 0),
+                    "completion_tokens": int((usage or {}).get("completion_tokens") or 0),
+                    "total_tokens": int((usage or {}).get("total_tokens") or 0),
+                    "latency_ms": int((perf_counter() - started_at) * 1000),
+                    "http_status": response_status,
+                    "finish_reason": str(data["choices"][0].get("finish_reason") or "").strip(),
+                }
+            )
             if not content:
-                return None
+                return {
+                    "result": None,
+                    "usage_meta": usage_meta,
+                    "error_meta": {"type": "EmptyContent", "message": "LLM response content is empty"},
+                }
 
-            return normalize_assistant_result(json.loads(content))
-    except Exception:
-        return None
+            result = normalize_assistant_result(json.loads(content))
+            usage_meta["llm_intent"] = str(result.get("intent", "")).strip()
+            return {
+                "result": result,
+                "usage_meta": usage_meta,
+                "error_meta": None,
+            }
+    except Exception as exc:
+        usage_meta["llm_called"] = True
+        usage_meta["latency_ms"] = int((perf_counter() - started_at) * 1000)
+        usage_meta["http_status"] = response_status
+        return {
+            "result": None,
+            "usage_meta": usage_meta,
+            "error_meta": {"type": exc.__class__.__name__, "message": str(exc)},
+        }
 
 
 def init_demo_data(session: Session) -> None:
@@ -699,3 +1075,35 @@ def init_demo_data(session: Session) -> None:
                 )
 
     session.commit()
+
+
+def matches_lead_search(lead_data: dict[str, Any], search: str) -> bool:
+    if not search:
+        return True
+    keyword = search.strip()
+    if not keyword:
+        return True
+    text_fields = [
+        lead_data.get("company_name", ""),
+        lead_data.get("organization_code", ""),
+        lead_data.get("region", ""),
+        lead_data.get("primary_contact_name", ""),
+        lead_data.get("primary_contact_phone", ""),
+    ]
+    return any(keyword in str(item) for item in text_fields)
+
+
+def matches_customer_search(customer_data: dict[str, Any], search: str) -> bool:
+    if not search:
+        return True
+    keyword = search.strip()
+    if not keyword:
+        return True
+    text_fields = [
+        customer_data.get("customer_name", ""),
+        customer_data.get("company_name", ""),
+        customer_data.get("contact_name", ""),
+        customer_data.get("phone", ""),
+        customer_data.get("owner_name", ""),
+    ]
+    return any(keyword in str(item) for item in text_fields)

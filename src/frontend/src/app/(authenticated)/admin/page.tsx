@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
@@ -80,6 +81,25 @@ export default function AdminPage() {
                 <div style={{ marginTop: 8, fontWeight: 700, color: 'var(--text-strong)' }}>{item.value}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 18, marginBottom: 20, background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-strong)' }}>AI 助手监控</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+              查看真实 Token 消耗、稳定性走势和 AI 动作审计链路。
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link href="/admin/ai-monitor/token" className="primary-btn">
+              打开 Token 监控
+            </Link>
+            <Link href="/admin/ai-monitor/audit" className="secondary-btn">
+              打开动作审计
+            </Link>
           </div>
         </div>
       </div>

@@ -1,0 +1,83 @@
+{
+  "dataset_id": "assistant-global-search-v1",
+  "description": "AI 助手综合查询验收用例",
+  "cases": [
+    {
+      "case_id": "GS-01",
+      "title": "模糊公司名综合查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查一下华北科技",
+          "context": {},
+          "expect": {
+            "result_kind": "global_search",
+            "equals": {
+              "data.filters.search": "华北科技",
+              "data.counts.customers": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "GS-02",
+      "title": "综合查询无匹配",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "找一下不存在公司",
+          "context": {},
+          "expect": {
+            "result_kind": "global_search",
+            "equals": {
+              "data.counts.customers": 0,
+              "data.counts.leads": 0,
+              "data.counts.public_pool_leads": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "GS-03",
+      "title": "联系人综合查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "搜一下张三",
+          "context": {},
+          "expect": {
+            "result_kind": "global_search"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "GS-04",
+      "title": "手机号综合查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "13800000001 查一下",
+          "context": {},
+          "expect": {
+            "result_kind": "global_search",
+            "equals": {
+              "data.filters.search": "13800000001",
+              "data.counts.customers": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

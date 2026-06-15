@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { api, ApiError } from '@/lib/api';
-import { AssistantDraftAction, AssistantResponse } from '@/types';
+import { AssistantDraftAction, AssistantGlobalSearchData, AssistantResponse, Customer, Lead } from '@/types';
 
 type Message = {
   id: string;
@@ -20,6 +20,7 @@ export function RightChatPanel({
   onOpenChange: (next: boolean) => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -33,6 +34,217 @@ export function RightChatPanel({
   const [submitting, setSubmitting] = useState(false);
   const [leadCreationSessionId, setLeadCreationSessionId] = useState<number | null>(null);
 
+  const currentLeadId = (() => {
+    const match = pathname?.match(/^\/leads\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+  })();
+
+  const openLeadFromResult = (lead: Lead) => {
+    if (lead.is_public) {
+      router.push('/public-pool');
+      return;
+    }
+    router.push(`/leads/${lead.id}`);
+  };
+
+  const renderStructuredResult = (response: AssistantResponse) => {
+    const leads = Array.isArray(response.data?.leads) ? (response.data.leads as Lead[]) : [];
+    const customers = Array.isArray(response.data?.customers) ? (response.data.customers as Customer[]) : [];
+    const publicPoolLeads = Array.isArray(response.data?.public_pool_leads)
+      ? (response.data.public_pool_leads as Lead[])
+      : [];
+    const lead = response.data?.lead as Lead | undefined;
+    const customer = response.data?.customer as Customer | undefined;
+    const filters =
+      response.data?.filters && typeof response.data.filters === 'object'
+        ? (response.data.filters as Record<string, unknown>)
+        : undefined;
+
+    if (response.result_kind === 'global_search') {
+      const globalData = response.data as Partial<AssistantGlobalSearchData>;
+      const counts = globalData.counts || {
+        customers: customers.length,
+        leads: leads.length,
+        public_pool_leads: publicPoolLeads.length,
+      };
+      const renderEmpty = (text: string) => (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '4px 0 8px' }}>{text}</div>
+      );
+      return (
+        <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+          <ResultFilters filters={filters} />
+          <div style={{ display: 'grid', gap: 12 }}>
+            <GlobalSearchSection title="客户" count={counts.customers || 0}>
+              {customers.length
+                ? customers.map((item) => (
+                    <ResultSummaryCard
+                      key={`customer-${item.id}`}
+                      title={item.customer_name}
+                      lines={[
+                        `客户 #${item.id} · ${item.owner_name || '未分配负责人'}`,
+                        `${item.contact_name || '未填联系人'} / ${item.phone || '未填手机号'}`,
+                        item.company_name || '未填公司名',
+                      ]}
+                      actionLabel="查看客户"
+                      onAction={() => router.push(`/customers/${item.id}`)}
+                    />
+                  ))
+                : renderEmpty('没有匹配客户')}
+            </GlobalSearchSection>
+            <GlobalSearchSection title="我的线索" count={counts.leads || 0}>
+              {leads.length
+                ? leads.map((item) => (
+                    <ResultSummaryCard
+                      key={`lead-${item.id}`}
+                      title={item.company_name}
+                      lines={[
+                        `线索 #${item.id} · ${item.region || '未填大区'} · ${item.status}`,
+                        `${item.primary_contact_name || '未填联系人'} / ${item.primary_contact_phone || '未填手机号'}`,
+                      ]}
+                      actionLabel="查看线索"
+                      onAction={() => router.push(`/leads/${item.id}`)}
+                    />
+                  ))
+                : renderEmpty('没有匹配线索')}
+            </GlobalSearchSection>
+            <GlobalSearchSection title="公共池" count={counts.public_pool_leads || 0}>
+              {publicPoolLeads.length
+                ? publicPoolLeads.map((item) => (
+                    <ResultSummaryCard
+                      key={`public-lead-${item.id}`}
+                      title={item.company_name}
+                      lines={[
+                        `线索 #${item.id} · ${item.region || '未填大区'} · ${item.status}`,
+                        `${item.primary_contact_name || '未填联系人'} / ${item.primary_contact_phone || '未填手机号'}`,
+                      ]}
+                      actionLabel="前往公共池"
+                      onAction={() => router.push('/public-pool')}
+                    />
+                  ))
+                : renderEmpty('没有匹配公共池线索')}
+            </GlobalSearchSection>
+          </div>
+        </div>
+      );
+    }
+
+    if (response.result_kind === 'lead_list' && leads.length) {
+      return (
+        <div style={{ marginTop: 12 }}>
+          <ResultFilters filters={filters} />
+          <div style={{ display: 'grid', gap: 10 }}>
+            {leads.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: '#fff',
+                  border: '1px solid var(--border-soft)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-strong)' }}>{item.company_name}</div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                      线索 #{item.id} · {item.region || '未填大区'} · {item.status}
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                      {item.primary_contact_name || '未填联系人'} / {item.primary_contact_phone || '未填手机号'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    style={{ whiteSpace: 'nowrap', padding: '8px 10px' }}
+                    onClick={() => openLeadFromResult(item)}
+                  >
+                    {item.is_public ? '前往公共池' : '查看线索'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (response.result_kind === 'customer_list' && customers.length) {
+      return (
+        <div style={{ marginTop: 12 }}>
+          <ResultFilters filters={filters} />
+          <div style={{ display: 'grid', gap: 10 }}>
+            {customers.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  background: '#fff',
+                  border: '1px solid var(--border-soft)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-strong)' }}>{item.customer_name}</div>
+                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                      客户 #{item.id} · {item.owner_name || '未分配负责人'}
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                      {item.contact_name || '未填联系人'} / {item.phone || '未填手机号'}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    style={{ whiteSpace: 'nowrap', padding: '8px 10px' }}
+                    onClick={() => router.push(`/customers/${item.id}`)}
+                  >
+                    查看客户
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (response.result_kind === 'lead_created' && lead?.id) {
+      return (
+        <ResultSummaryCard
+          title={lead.company_name}
+          lines={[
+            `线索 #${lead.id}`,
+            `${lead.primary_contact_name || '未填联系人'} / ${lead.primary_contact_phone || '未填手机号'}`,
+            `${lead.region || '未填大区'} · ${lead.status}`,
+          ]}
+          actionLabel="查看线索"
+          onAction={() => router.push(`/leads/${lead.id}`)}
+        />
+      );
+    }
+
+    if (response.result_kind === 'customer_created' && customer?.id) {
+      return (
+        <ResultSummaryCard
+          title={customer.customer_name}
+          lines={[
+            `客户 #${customer.id}`,
+            `${customer.contact_name || '未填联系人'} / ${customer.phone || '未填手机号'}`,
+            customer.company_name || '未填公司名',
+          ]}
+          actionLabel="查看客户"
+          onAction={() => router.push(`/customers/${customer.id}`)}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const structuredResult = result ? renderStructuredResult(result) : null;
+
   const sendMessage = async () => {
     if (!input.trim() || submitting) return;
     const currentText = input.trim();
@@ -43,6 +255,9 @@ export function RightChatPanel({
       const response = await api.post<AssistantResponse>('/assistant/message', {
         message: currentText,
         session_id: leadCreationSessionId,
+        context: {
+          lead_id: currentLeadId,
+        },
       });
       if (typeof response.data?.session_id === 'number') {
         setLeadCreationSessionId(response.data.session_id);
@@ -242,20 +457,24 @@ export function RightChatPanel({
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>最新结构化结果</div>
-              <pre
-                style={{
-                  marginTop: 10,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  fontSize: 12,
-                  lineHeight: 1.7,
-                  color: 'var(--text-normal)',
-                  maxHeight: 140,
-                  overflowY: 'auto',
-                }}
-              >
-                {JSON.stringify(result.data, null, 2)}
-              </pre>
+              {structuredResult}
+              <details style={{ marginTop: 12 }}>
+                <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)' }}>查看原始结果</summary>
+                <pre
+                  style={{
+                    marginTop: 10,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontSize: 12,
+                    lineHeight: 1.7,
+                    color: 'var(--text-normal)',
+                    maxHeight: 140,
+                    overflowY: 'auto',
+                  }}
+                >
+                  {JSON.stringify(result.data, null, 2)}
+                </pre>
+              </details>
               {Array.isArray(result.data?.available_actions) && result.data.available_actions.length ? (
                 <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {result.data.available_actions.map((action: { kind: string; label: string; payload: Record<string, unknown> }) => (
@@ -332,6 +551,111 @@ export function RightChatPanel({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function GlobalSearchSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      style={{
+        padding: 12,
+        borderRadius: 14,
+        background: '#f8fafc',
+        border: '1px solid var(--border-soft)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-strong)' }}>{title}</div>
+        <div
+          style={{
+            minWidth: 28,
+            height: 24,
+            padding: '0 8px',
+            borderRadius: 999,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#eef4ff',
+            color: '#1d39c4',
+            fontSize: 12,
+            fontWeight: 800,
+          }}
+        >
+          {count}
+        </div>
+      </div>
+      <div style={{ marginTop: 8 }}>{children}</div>
+    </section>
+  );
+}
+
+function ResultFilters({ filters }: { filters?: Record<string, unknown> }) {
+  const activeFilters = Object.entries(filters || {}).filter(([, value]) => Boolean(String(value || '').trim()));
+  if (!activeFilters.length) return null;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 10 }}>
+      {activeFilters.map(([key, value]) => (
+        <span
+          key={key}
+          style={{
+            padding: '4px 8px',
+            borderRadius: 999,
+            background: '#eef4ff',
+            border: '1px solid #c7d9ff',
+            color: '#1d39c4',
+            fontSize: 12,
+            lineHeight: 1.4,
+          }}
+        >
+          {key}: {String(value)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ResultSummaryCard({
+  title,
+  lines,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  lines: string[];
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        padding: 12,
+        borderRadius: 12,
+        background: '#fff',
+        border: '1px solid var(--border-soft)',
+      }}
+    >
+      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-strong)' }}>{title}</div>
+      <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+        {lines.map((line) => (
+          <div key={line} style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            {line}
+          </div>
+        ))}
+      </div>
+      <button type="button" className="secondary-btn" style={{ marginTop: 12 }} onClick={onAction}>
+        {actionLabel}
+      </button>
     </div>
   );
 }

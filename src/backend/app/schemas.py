@@ -173,6 +173,7 @@ class AssistantRequest(BaseModel):
     message: str = ""
     confirm_action: Optional[AssistantActionRequest] = None
     session_id: Optional[int] = None
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class LeadCreationSkillRequest(BaseModel):

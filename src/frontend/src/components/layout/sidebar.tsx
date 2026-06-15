@@ -77,20 +77,39 @@ export function Sidebar() {
           );
         })}
         {user.role === '系统管理员' ? (
-          <Link href="/admin">
-            <div
-              style={{
-                padding: '12px 16px',
-                marginTop: 10,
-                borderRadius: 10,
-                background: pathname === '/admin' || pathname.startsWith('/admin/') ? 'var(--bg-sidebar-active)' : 'rgba(255,255,255,0.04)',
-                fontSize: 14,
-                fontWeight: 700,
-              }}
-            >
-              系统管理
-            </div>
-          </Link>
+          <>
+            <Link href="/admin">
+              <div
+                style={{
+                  padding: '12px 16px',
+                  marginTop: 10,
+                  borderRadius: 10,
+                  background:
+                    pathname === '/admin' || (pathname.startsWith('/admin/') && !pathname.startsWith('/admin/ai-monitor'))
+                      ? 'var(--bg-sidebar-active)'
+                      : 'rgba(255,255,255,0.04)',
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              >
+                系统管理
+              </div>
+            </Link>
+            <Link href="/admin/ai-monitor/token">
+              <div
+                style={{
+                  padding: '12px 16px',
+                  marginTop: 8,
+                  borderRadius: 10,
+                  background: pathname.startsWith('/admin/ai-monitor') ? 'var(--bg-sidebar-active)' : 'rgba(255,255,255,0.04)',
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              >
+                AI 助手监控
+              </div>
+            </Link>
+          </>
         ) : null}
       </nav>
       <div

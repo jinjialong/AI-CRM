@@ -174,6 +174,62 @@ class AssistantSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 
+class AiAssistantRunLog(SQLModel, table=True):
+    __tablename__ = "ai_assistant_run_log"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: str = Field(index=True)
+    turn_no: int = Field(default=1, index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    user_name: str = ""
+    user_role: str = Field(default="", index=True)
+    entrypoint: str = "/assistant/message"
+    page_context: str = ""
+    input_excerpt: str = ""
+    assistant_message_excerpt: str = ""
+    provider: str = "openai"
+    model: str = Field(default="", index=True)
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = Field(default=0, index=True)
+    latency_ms: int = 0
+    llm_called: bool = False
+    route_source: str = Field(default="", index=True)
+    fallback_used: bool = Field(default=False, index=True)
+    llm_intent: str = ""
+    final_intent: str = Field(default="", index=True)
+    result_kind: str = Field(default="", index=True)
+    action_type: str = Field(default="", index=True)
+    target_type: str = ""
+    target_id: str = ""
+    target_label: str = ""
+    confirm_required: bool = Field(default=False, index=True)
+    confirm_status: str = Field(default="not_required", index=True)
+    write_applied: bool = Field(default=False, index=True)
+    risk_level: str = Field(default="低", index=True)
+    result: str = Field(default="成功", index=True)
+    error_type: str = ""
+    error_message: str = ""
+    prompt_version: str = "assistant-v1"
+    rule_version: str = "fallback-v1"
+    created_at: datetime = Field(default_factory=utcnow, nullable=False, index=True)
+
+
+class AiAssistantWriteEffect(SQLModel, table=True):
+    __tablename__ = "ai_assistant_write_effect"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    run_log_id: int = Field(foreign_key="ai_assistant_run_log.id", index=True)
+    object_type: str = Field(index=True)
+    object_id: str = Field(index=True)
+    object_label: str = ""
+    change_type: str = Field(default="", index=True)
+    before_summary: str = ""
+    after_summary: str = ""
+    audit_written: bool = True
+    created_at: datetime = Field(default_factory=utcnow, nullable=False, index=True)
+
+
 class LeadConversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     lead_id: int = Field(foreign_key="lead.id", index=True)

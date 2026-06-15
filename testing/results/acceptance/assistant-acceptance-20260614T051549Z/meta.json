@@ -1,0 +1,8 @@
+{
+  "run_id": "assistant-acceptance-20260614T051549Z",
+  "dataset_id": "assistant-batch1-v1",
+  "dataset_path": "testing\\datasets\\acceptance\\assistant_batch1.json",
+  "base_url": "http://127.0.0.1:8000",
+  "started_at": "2026-06-14T05:15:49.103575Z",
+  "finished_at": "2026-06-14T05:16:12.100841Z"
+}

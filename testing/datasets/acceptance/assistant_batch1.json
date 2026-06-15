@@ -1,0 +1,271 @@
+{
+  "dataset_id": "assistant-batch1-v1",
+  "description": "AI 助手第一批测试用例：冒烟 + 核心业务",
+  "cases": [
+    {
+      "case_id": "CL-01",
+      "title": "一句话完整创建线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "帮我创建一个线索，公司名称第一批验收科技-{{suffix}}，联系人张三，手机号1381100{{phone_tail}}，备注第一批验收",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CL-05",
+      "title": "先给公司名",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "帮我建个线索，公司叫第一批华东制造-{{suffix}}",
+          "context": {},
+          "expect": {
+            "result_kind": "message",
+            "contains": {
+              "message": "至少提供"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CL-06",
+      "title": "第二轮补联系人和手机号",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "帮我建个线索，公司叫第一批北方能源-{{suffix}}",
+          "context": {},
+          "expect": {
+            "result_kind": "message"
+          }
+        },
+        {
+          "message": "联系人李四，手机号1391100{{phone_tail}}",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "LL-01",
+      "title": "查询我的线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "我的线索",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_list"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "LL-04",
+      "title": "按状态过滤查询线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查询跟进中的线索",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_list"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "LP-01",
+      "title": "查询公共线索池",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "看看公共线索池",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_list"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-01",
+      "title": "查询我的客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "我的客户",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CV-02",
+      "title": "详情页上下文发起转客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "setup": {
+        "create_lead": {
+          "company_name": "第一批转客户线索A-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第一批转客户前置",
+          "contacts": [
+            {
+              "name": "前置张三",
+              "phone": "1381200{{phone_tail}}",
+              "job_title": "招商主管",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CV-05",
+      "title": "确认执行转客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "setup": {
+        "create_lead": {
+          "company_name": "第一批转客户线索B-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第一批确认转客户前置",
+          "contacts": [
+            {
+              "name": "前置李四",
+              "phone": "1381201{{phone_tail}}",
+              "job_title": "招商主管",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        },
+        {
+          "confirm_from_previous_draft": true,
+          "expect": {
+            "result_kind": "customer_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CF-01",
+      "title": "查询配置",
+      "login": "admin01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "看看配置",
+          "context": {},
+          "expect": {
+            "result_kind": "message",
+            "equals": {
+              "usage_meta.final_intent": "show_config"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CH-01",
+      "title": "普通闲聊",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "你是谁",
+          "context": {},
+          "expect": {
+            "result_kind": "message"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "MO-02",
+      "title": "转客户两轮链路监控",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "setup": {
+        "create_lead": {
+          "company_name": "第一批监控链路线索-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第一批监控链路前置",
+          "contacts": [
+            {
+              "name": "前置王五",
+              "phone": "1381202{{phone_tail}}",
+              "job_title": "招商主管",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        },
+        {
+          "confirm_from_previous_draft": true,
+          "expect": {
+            "result_kind": "customer_created"
+          }
+        }
+      ]
+    }
+  ]
+}

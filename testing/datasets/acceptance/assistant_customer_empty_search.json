@@ -1,0 +1,196 @@
+{
+  "dataset_id": "assistant-customer-empty-search-v1",
+  "description": "AI 助手客户查询空结果扩展用例：CU-07 到 CU-16",
+  "cases": [
+    {
+      "case_id": "CU-07",
+      "title": "不存在公司名",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查询客户火星能源集团",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-08",
+      "title": "不存在联系人",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查看客户，联系人叫诸葛测试",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-09",
+      "title": "不存在手机号",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查询客户，手机号19999998888",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-10",
+      "title": "口语化在不在",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "看看客户里有没有月球矿业",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-11",
+      "title": "找客户口语表达",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "帮我找客户银河零售",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-12",
+      "title": "弱指代查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查看客户，那个客户",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-13",
+      "title": "带噪声查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "客户里帮我搜一下南极供应链，应该没有",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-14",
+      "title": "英文数字混合名称",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查询客户 ACME-NOT-EXIST-202606",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-15",
+      "title": "标点复杂查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查看客户：北极星不存在有限公司？",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-16",
+      "title": "联系人和手机号混合不存在",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 1,
+      "turns": [
+        {
+          "message": "查询客户联系人不存在先生电话19900001111",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "contains": {
+              "message": "0"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

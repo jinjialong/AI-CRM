@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI助手审计与Token监控页面稿</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-canvas: #f5f7fa;
+      --bg-card: #ffffff;
+      --bg-sidebar: #0f172a;
+      --bg-sidebar-active: #1890ff;
+      --bg-muted: #f8fafc;
+      --border-soft: #e2e8f0;
+      --text-strong: #0f172a;
+      --text-normal: #334155;
+      --text-muted: #64748b;
+      --blue: #1890ff;
+      --blue-soft: #e6f7ff;
+      --orange: #fa8c16;
+      --orange-soft: #fff7ed;
+      --green: #52c41a;
+      --red: #ff4d4f;
+      --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.06);
+      --radius-sm: 8px;
+      --radius-md: 10px;
+      --radius-lg: 12px;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg-canvas);
+      color: var(--text-normal);
+    }
+
+    .page-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 220px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: var(--bg-sidebar);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 22px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-header h1 {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .sidebar-header p {
+      margin-top: 8px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 10px 8px;
+      overflow-y: auto;
+    }
+
+    .nav-item,
+    .nav-subitem {
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+
+    .nav-item {
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .nav-subitem {
+      padding: 10px 16px 10px 26px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .nav-active {
+      background: var(--bg-sidebar-active);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-footer .name {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .sidebar-footer .role {
+      margin-top: 6px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    .page-main {
+      flex: 1;
+      margin-left: 220px;
+      padding: 24px;
+    }
+
+    .switch-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .switch-btn {
+      border: 1px solid var(--border-soft);
+      background: #fff;
+      color: var(--text-normal);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .switch-btn.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+      box-shadow: 0 10px 20px rgba(24, 144, 255, 0.2);
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-strong);
+    }
+
+    .section-desc {
+      margin-top: 8px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .primary-btn {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      box-shadow: 0 10px 20px rgba(24, 144, 255, 0.2);
+    }
+
+    .secondary-btn {
+      background: #fff;
+      color: var(--text-normal);
+      border: 1px solid var(--border-soft);
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+    }
+
+    .filter-card {
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 170px 170px 170px 170px 170px auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .filter-grid.audit {
+      grid-template-columns: 150px 150px 150px 150px 150px 150px auto;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px 12px;
+      color: var(--text-strong);
+      font: inherit;
+    }
+
+    .filter-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .filter-actions .left {
+      display: flex;
+      gap: 10px;
+    }
+
+    .summary-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .grid-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .metric-tile {
+      min-height: 126px;
+      border-radius: 12px;
+      padding: 18px 20px;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .metric-tile .label {
+      font-size: 13px;
+      opacity: 0.92;
+    }
+
+    .metric-tile .value {
+      font-size: 30px;
+      font-weight: 800;
+    }
+
+    .metric-tile .hint {
+      font-size: 13px;
+      opacity: 0.92;
+      line-height: 1.5;
+    }
+
+    .panel-card {
+      padding: 18px;
+      min-height: 268px;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-strong);
+      margin-bottom: 14px;
+    }
+
+    .panel-subactions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .chip-btn {
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: #fff;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .chart-placeholder {
+      height: 168px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(24, 144, 255, 0.05), rgba(24, 144, 255, 0.01)),
+        repeating-linear-gradient(
+          to right,
+          transparent 0,
+          transparent 72px,
+          rgba(203, 213, 225, 0.38) 72px,
+          rgba(203, 213, 225, 0.38) 73px
+        );
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chart-placeholder::before {
+      content: "";
+      position: absolute;
+      left: 20px;
+      right: 16px;
+      top: 90px;
+      height: 3px;
+      background: linear-gradient(90deg, #73c0ff 0%, #1890ff 42%, #fa8c16 72%, #52c41a 100%);
+      border-radius: 999px;
+      transform: skewX(-18deg);
+      box-shadow: 0 0 0 6px rgba(24, 144, 255, 0.04);
+    }
+
+    .chart-placeholder::after {
+      content: "图表预览区域";
+      position: absolute;
+      right: 14px;
+      top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .bar-item {
+      display: grid;
+      grid-template-columns: 120px 1fr 52px;
+      gap: 12px;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .bar-track {
+      height: 10px;
+      background: #eef2f7;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #69b1ff, #1890ff);
+    }
+
+    .risk-card {
+      display: grid;
+      gap: 14px;
+    }
+
+    .risk-block {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 14px;
+      background: #fafcff;
+    }
+
+    .risk-block .risk-title {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .risk-block .risk-main {
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-strong);
+    }
+
+    .risk-block .risk-desc {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .table-card {
+      overflow: hidden;
+      position: relative;
+      min-height: 520px;
+    }
+
+    .table-title {
+      padding: 18px 18px 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-strong);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding-top: 12px;
+      padding-right: 400px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1260px;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: #f8fafc;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 14px;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .mini-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .link-btn {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .chip-blue {
+      background: #e6f7ff;
+      color: #0958d9;
+    }
+
+    .chip-orange {
+      background: #fff7ed;
+      color: #d46b08;
+    }
+
+    .chip-green {
+      background: #f6ffed;
+      color: #389e0d;
+    }
+
+    .chip-red {
+      background: #fff1f0;
+      color: #cf1322;
+    }
+
+    .drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 380px;
+      height: 100%;
+      border-left: 1px solid var(--border-soft);
+      background: #fbfcfe;
+      box-shadow: -10px 0 30px rgba(15, 23, 42, 0.05);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer-header {
+      padding: 18px;
+      border-bottom: 1px solid var(--border-soft);
+      background: #fff;
+    }
+
+    .drawer-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-strong);
+    }
+
+    .drawer-sub {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .info-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .info-card h4 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-strong);
+      margin-bottom: 10px;
+    }
+
+    .info-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .info-row {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .info-row .k {
+      color: var(--text-muted);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    .timeline-item {
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      background: #fafcff;
+      padding: 12px;
+    }
+
+    .timeline-item .step {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .timeline-item .main {
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-strong);
+    }
+
+    .timeline-item .desc {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .alert {
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      font-weight: 700;
+    }
+
+    .alert.orange {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #c2410c;
+    }
+
+    .alert.red {
+      background: #fff1f0;
+      border: 1px solid #ffc1c2;
+      color: #cf1322;
+    }
+
+    .impact-modal {
+      margin-top: 12px;
+      border: 1px solid #dbeafe;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .impact-modal h5 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-strong);
+      margin-bottom: 10px;
+    }
+
+    .impact-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .impact-grid .impact-row {
+      font-size: 13px;
+      color: var(--text-normal);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1280px) {
+      .filter-grid,
+      .filter-grid.audit,
+      .grid-5,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .table-wrap {
+        padding-right: 0;
+      }
+
+      .drawer {
+        position: static;
+        width: 100%;
+        height: auto;
+        border-left: none;
+        border-top: 1px solid var(--border-soft);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>智能原生客户关系管理</h1>
+        <p>第 1.2 阶段页面稿预览</p>
+      </div>
+      <div class="sidebar-nav">
+        <div class="nav-item">数据概览</div>
+        <div class="nav-item">我的线索</div>
+        <div class="nav-item">公共线索池</div>
+        <div class="nav-item">我的客户</div>
+        <div class="nav-item">我的日报</div>
+        <div class="nav-item">团队日报</div>
+        <div class="nav-item">团队概览</div>
+        <div class="nav-item">团队线索</div>
+        <div class="nav-item">系统管理</div>
+        <div class="nav-item">AI 助手监控</div>
+        <div class="nav-subitem nav-active">消耗稳定性监控</div>
+        <div class="nav-subitem">动作审计</div>
+      </div>
+      <div class="sidebar-footer">
+        <div class="name">admin01</div>
+        <div class="role">系统管理员</div>
+      </div>
+    </aside>
+
+    <main class="page-main">
+      <div class="switch-bar">
+        <button class="switch-btn active" data-target="token-page">Token 监控页</button>
+        <button class="switch-btn" data-target="audit-page">动作审计页</button>
+      </div>
+
+      <section class="page active" id="token-page">
+        <div class="page-header">
+          <div>
+            <div class="section-title">AI 助手消耗与稳定性监控</div>
+            <div class="section-desc">查看每条能力的真实消耗、耗时波动、兜底占比和会话明细。</div>
+          </div>
+          <div class="header-actions">
+            <button class="secondary-btn">导出汇总</button>
+            <button class="primary-btn">刷新数据</button>
+          </div>
+        </div>
+
+        <div class="card filter-card">
+          <div class="filter-grid">
+            <select>
+              <option>近 7 天</option>
+            </select>
+            <select>
+              <option>全部能力</option>
+            </select>
+            <select>
+              <option>全部模型</option>
+            </select>
+            <select>
+              <option>全部结果</option>
+            </select>
+            <select>
+              <option>全部兜底情况</option>
+            </select>
+            <div class="filter-actions">
+              <div class="left">
+                <input placeholder="搜索会话/用例/用户" />
+                <button class="primary-btn">搜索</button>
+                <button class="secondary-btn">重置</button>
+              </div>
+              <div class="summary-note">共 12,486 次请求</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-5">
+          <div class="metric-tile" style="background:#1677ff;">
+            <div class="label">总请求数</div>
+            <div class="value">12,486</div>
+            <div class="hint">较昨日 +12%</div>
+          </div>
+          <div class="metric-tile" style="background:#fa8c16;">
+            <div class="label">平均总消耗量</div>
+            <div class="value">1,248</div>
+            <div class="hint">输入 910 / 输出 338</div>
+          </div>
+          <div class="metric-tile" style="background:#52c41a;">
+            <div class="label">平均耗时</div>
+            <div class="value">1,420ms</div>
+            <div class="hint">P95 2,980ms</div>
+          </div>
+          <div class="metric-tile" style="background:#cf1322;">
+            <div class="label">兜底占比</div>
+            <div class="value">8.6%</div>
+            <div class="hint">阈值 10%</div>
+          </div>
+          <div class="metric-tile" style="background:#722ed1;">
+            <div class="label">通过率</div>
+            <div class="value">94.2%</div>
+            <div class="hint">P0 场景 97.1%</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card panel-card">
+            <div class="panel-title">总消耗趋势</div>
+            <div class="chart-placeholder"></div>
+            <div class="panel-subactions">
+              <button class="chip-btn">按天</button>
+              <button class="chip-btn">按小时</button>
+              <button class="chip-btn">看总消耗</button>
+              <button class="chip-btn">看耗时</button>
+            </div>
+          </div>
+          <div class="card panel-card">
+            <div class="panel-title">路由来源分布</div>
+            <div class="bar-list">
+              <div class="bar-item">
+                <div>直接命中</div>
+                <div class="bar-track"><div class="bar-fill" style="width:68%;"></div></div>
+                <div>68%</div>
+              </div>
+              <div class="bar-item">
+                <div>未知后兜底</div>
+                <div class="bar-track"><div class="bar-fill" style="width:17%; background:linear-gradient(90deg,#fdba74,#f97316);"></div></div>
+                <div>17%</div>
+              </div>
+              <div class="bar-item">
+                <div>模型失败后兜底</div>
+                <div class="bar-track"><div class="bar-fill" style="width:6%; background:linear-gradient(90deg,#fca5a5,#ef4444);"></div></div>
+                <div>6%</div>
+              </div>
+              <div class="bar-item">
+                <div>确认动作</div>
+                <div class="bar-track"><div class="bar-fill" style="width:7%; background:linear-gradient(90deg,#c4b5fd,#8b5cf6);"></div></div>
+                <div>7%</div>
+              </div>
+              <div class="bar-item">
+                <div>空消息</div>
+                <div class="bar-track"><div class="bar-fill" style="width:2%; background:linear-gradient(90deg,#bfdbfe,#60a5fa);"></div></div>
+                <div>2%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card panel-card">
+            <div class="panel-title">能力维度对比</div>
+            <div class="bar-list">
+              <div class="bar-item">
+                <div>create_lead</div>
+                <div class="bar-track"><div class="bar-fill" style="width:88%;"></div></div>
+                <div>1,980</div>
+              </div>
+              <div class="bar-item">
+                <div>convert_lead</div>
+                <div class="bar-track"><div class="bar-fill" style="width:56%;"></div></div>
+                <div>1,120</div>
+              </div>
+              <div class="bar-item">
+                <div>list_customers</div>
+                <div class="bar-track"><div class="bar-fill" style="width:43%;"></div></div>
+                <div>860</div>
+              </div>
+              <div class="bar-item">
+                <div>list_leads</div>
+                <div class="bar-track"><div class="bar-fill" style="width:41%;"></div></div>
+                <div>820</div>
+              </div>
+              <div class="bar-item">
+                <div>public_pool</div>
+                <div class="bar-track"><div class="bar-fill" style="width:39%;"></div></div>
+                <div>790</div>
+              </div>
+            </div>
+          </div>
+          <div class="card panel-card">
+            <div class="panel-title">风险关注区</div>
+            <div class="risk-card">
+              <div class="risk-block">
+                <div class="risk-title">最贵场景</div>
+                <div class="risk-main">一句话完整创建线索</div>
+                <div class="risk-desc">平均 2,140 / 最大 3,980，主要集中在多联系人和备注较长的输入。</div>
+              </div>
+              <div class="risk-block">
+                <div class="risk-title">最不稳场景</div>
+                <div class="risk-main">详情页上下文转客户</div>
+                <div class="risk-desc">通过率 81%，兜底占比 22%，建议优先复核上下文传递和目标识别。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-title">用例运行明细</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>用例</th>
+                  <th>能力</th>
+                  <th>时间</th>
+                  <th>模型</th>
+                  <th>输入消耗</th>
+                  <th>输出消耗</th>
+                  <th>总消耗</th>
+                  <th>耗时</th>
+                  <th>路由来源</th>
+                  <th>结果</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>CL-01</strong><div class="mini-text">创建线索完整输入</div></td>
+                  <td>create_lead</td>
+                  <td>06-12 10:02</td>
+                  <td>gpt-4.1-mini</td>
+                  <td>920</td>
+                  <td>310</td>
+                  <td><strong>1230</strong></td>
+                  <td>1180ms</td>
+                  <td><span class="chip chip-blue">直接命中</span></td>
+                  <td><span class="chip chip-green">成功</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+                <tr>
+                  <td><strong>CL-02</strong><div class="mini-text">多轮补字段创建</div></td>
+                  <td>create_lead</td>
+                  <td>06-12 10:05</td>
+                  <td>gpt-4.1-mini</td>
+                  <td>840</td>
+                  <td>420</td>
+                  <td><strong>1260</strong></td>
+                  <td>1430ms</td>
+                  <td><span class="chip chip-orange">未知后兜底</span></td>
+                  <td><span class="chip chip-green">成功</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+                <tr>
+                  <td><strong>LL-01</strong><div class="mini-text">查询我的线索</div></td>
+                  <td>list_leads</td>
+                  <td>06-12 10:06</td>
+                  <td>gpt-4.1-mini</td>
+                  <td>610</td>
+                  <td>180</td>
+                  <td><strong>790</strong></td>
+                  <td>820ms</td>
+                  <td><span class="chip chip-blue">直接命中</span></td>
+                  <td><span class="chip chip-green">成功</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+                <tr>
+                  <td><strong>CV-01</strong><div class="mini-text">详情页上下文转客户</div></td>
+                  <td>convert_lead</td>
+                  <td>06-12 10:09</td>
+                  <td>gpt-4.1-mini</td>
+                  <td>700</td>
+                  <td>240</td>
+                  <td><strong>940</strong></td>
+                  <td>1090ms</td>
+                  <td><span class="chip chip-blue">直接命中</span></td>
+                  <td><span class="chip chip-orange">待确认</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="drawer">
+            <div class="drawer-header">
+              <div class="drawer-title">CL-02 多轮补字段创建</div>
+              <div class="drawer-sub">会话详情预览</div>
+            </div>
+            <div class="drawer-body">
+              <div class="info-card">
+                <h4>基础信息</h4>
+                <div class="info-list">
+                  <div class="info-row"><div class="k">会话编号</div><div>S-20260612-0012</div></div>
+                  <div class="info-row"><div class="k">用户</div><div>sales01</div></div>
+                  <div class="info-row"><div class="k">能力</div><div>create_lead</div></div>
+                  <div class="info-row"><div class="k">模型</div><div>gpt-4.1-mini</div></div>
+                  <div class="info-row"><div class="k">结果</div><div>成功</div></div>
+                  <div class="info-row"><div class="k">路由来源</div><div>未知后兜底</div></div>
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>汇总指标</h4>
+                <div class="info-list">
+                  <div class="info-row"><div class="k">输入消耗</div><div>840</div></div>
+                  <div class="info-row"><div class="k">输出消耗</div><div>420</div></div>
+                  <div class="k">总消耗</div><div><strong>1260</strong></div></div>
+                  <div class="info-row"><div class="k">调用耗时</div><div>1430 ms</div></div>
+                  <div class="info-row"><div class="k">模型原始意图</div><div>unknown</div></div>
+                  <div class="info-row"><div class="k">最终执行意图</div><div>create_lead</div></div>
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>轮次拆解</h4>
+                <div class="timeline">
+                  <div class="timeline-item">
+                    <div class="step">第 1 轮</div>
+                    <div class="main">帮我建个线索，公司叫华东制造</div>
+                    <div class="desc">结果：缺字段。输入 420 / 输出 220 / 总消耗 640。</div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="step">第 2 轮</div>
+                    <div class="main">联系人李四，手机号 139****0022</div>
+                    <div class="desc">结果：创建成功。输入 420 / 输出 200 / 总消耗 620。</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="alert orange">最近 5 次运行里有 2 次走兜底。</div>
+              <div class="alert red">最大总消耗量比中位数高 1.9 倍。</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page" id="audit-page">
+        <div class="page-header">
+          <div>
+            <div class="section-title">AI 动作审计</div>
+            <div class="section-desc">追查 AI 每一次判断、每一个待确认动作、每一次正式写库和失败原因。</div>
+          </div>
+          <div class="header-actions">
+            <button class="secondary-btn">导出动作清单</button>
+            <button class="primary-btn">刷新数据</button>
+          </div>
+        </div>
+
+        <div class="card filter-card">
+          <div class="filter-grid audit">
+            <select>
+              <option>近 7 天</option>
+            </select>
+            <select>
+              <option>全部用户</option>
+            </select>
+            <select>
+              <option>全部能力</option>
+            </select>
+            <select>
+              <option>全部动作类型</option>
+            </select>
+            <select>
+              <option>全部风险等级</option>
+            </select>
+            <select>
+              <option>全部结果</option>
+            </select>
+            <div class="filter-actions">
+              <div class="left">
+                <input placeholder="搜索会话/对象/输入摘要" />
+                <button class="primary-btn">搜索</button>
+                <button class="secondary-btn">重置</button>
+              </div>
+              <div class="summary-note">高风险动作 218 条</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-5">
+          <div class="metric-tile" style="background:#1677ff;">
+            <div class="label">总动作数</div>
+            <div class="value">3,286</div>
+            <div class="hint">较昨日 +8%</div>
+          </div>
+          <div class="metric-tile" style="background:#52c41a;">
+            <div class="label">写入动作数</div>
+            <div class="value">1,420</div>
+            <div class="hint">create / convert 为主</div>
+          </div>
+          <div class="metric-tile" style="background:#cf1322;">
+            <div class="label">高风险动作数</div>
+            <div class="value">218</div>
+            <div class="hint">转客户 / 删除类</div>
+          </div>
+          <div class="metric-tile" style="background:#fa8c16;">
+            <div class="label">待确认动作数</div>
+            <div class="value">164</div>
+            <div class="hint">draft_action</div>
+          </div>
+          <div class="metric-tile" style="background:#722ed1;">
+            <div class="label">失败动作数</div>
+            <div class="value">73</div>
+            <div class="hint">权限 / 对象 / 校验失败</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card panel-card">
+            <div class="panel-title">动作类型分布</div>
+            <div class="bar-list">
+              <div class="bar-item">
+                <div>list_leads</div>
+                <div class="bar-track"><div class="bar-fill" style="width:74%;"></div></div>
+                <div>1120</div>
+              </div>
+              <div class="bar-item">
+                <div>create_lead</div>
+                <div class="bar-track"><div class="bar-fill" style="width:58%;"></div></div>
+                <div>860</div>
+              </div>
+              <div class="bar-item">
+                <div>list_customers</div>
+                <div class="bar-track"><div class="bar-fill" style="width:36%;"></div></div>
+                <div>540</div>
+              </div>
+              <div class="bar-item">
+                <div>convert_lead</div>
+                <div class="bar-track"><div class="bar-fill" style="width:16%; background:linear-gradient(90deg,#fdba74,#f97316);"></div></div>
+                <div>164</div>
+              </div>
+            </div>
+          </div>
+          <div class="card panel-card">
+            <div class="panel-title">风险预警区</div>
+            <div class="risk-card">
+              <div class="risk-block">
+                <div class="risk-title">高风险异常</div>
+                <div class="risk-main">convert_lead 失败率偏高</div>
+                <div class="risk-desc">失败动作 73 条里，转客户相关占 42 条，主要集中在对象校验和权限拦截。</div>
+              </div>
+              <div class="risk-block">
+                <div class="risk-title">可疑模式</div>
+                <div class="risk-main">fallback 后写库 12 条</div>
+                <div class="risk-desc">建议开发时在详情抽屉里重点标注“兜底后正式写库”的链路。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-title">动作审计主表</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>会话编号</th>
+                  <th>用户</th>
+                  <th>原始输入摘要</th>
+                  <th>AI 判断意图</th>
+                  <th>实际执行动作</th>
+                  <th>目标对象</th>
+                  <th>风险</th>
+                  <th>结果</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>06-12 10:05</td>
+                  <td><strong>S-001283</strong></td>
+                  <td>sales01</td>
+                  <td>把这条线索转成客户</td>
+                  <td>convert_lead</td>
+                  <td>待确认转客户</td>
+                  <td>Lead#3</td>
+                  <td><span class="chip chip-red">高</span></td>
+                  <td><span class="chip chip-orange">待确认</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+                <tr>
+                  <td>06-12 10:06</td>
+                  <td><strong>S-001283</strong></td>
+                  <td>sales01</td>
+                  <td>确认执行</td>
+                  <td>-</td>
+                  <td>正式转客户</td>
+                  <td>Customer#121</td>
+                  <td><span class="chip chip-red">高</span></td>
+                  <td><span class="chip chip-green">成功</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+                <tr>
+                  <td>06-12 10:10</td>
+                  <td><strong>S-001295</strong></td>
+                  <td>sales03</td>
+                  <td>删掉线索5</td>
+                  <td>unknown</td>
+                  <td>未执行</td>
+                  <td>Lead#5</td>
+                  <td><span class="chip chip-red">高</span></td>
+                  <td><span class="chip chip-red">拒绝</span></td>
+                  <td><span class="link-btn">查看详情</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="drawer">
+            <div class="drawer-header">
+              <div class="drawer-title">动作编号 A-20260612-001283</div>
+              <div class="drawer-sub">动作详情预览</div>
+            </div>
+            <div class="drawer-body">
+              <div class="info-card">
+                <h4>基础信息</h4>
+                <div class="info-list">
+                  <div class="info-row"><div class="k">时间</div><div>2026-06-12 10:05:14</div></div>
+                  <div class="info-row"><div class="k">会话编号</div><div>S-001283</div></div>
+                  <div class="info-row"><div class="k">用户</div><div>sales01</div></div>
+                  <div class="info-row"><div class="k">入口</div><div>/assistant/message</div></div>
+                  <div class="info-row"><div class="k">页面上下文</div><div>Lead#3</div></div>
+                  <div class="info-row"><div class="k">原始输入</div><div>把这条线索转成客户</div></div>
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>AI 判断</h4>
+                <div class="info-list">
+                  <div class="info-row"><div class="k">模型原始意图</div><div>convert_lead</div></div>
+                  <div class="info-row"><div class="k">最终执行意图</div><div>convert_lead</div></div>
+                  <div class="info-row"><div class="k">路由来源</div><div>直接命中</div></div>
+                  <div class="info-row"><div class="k">是否走兜底</div><div>否</div></div>
+                  <div class="info-row"><div class="k">风险等级</div><div>高</div></div>
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>执行动作</h4>
+                <div class="info-list">
+                  <div class="info-row"><div class="k">动作类型</div><div>待确认转客户</div></div>
+                  <div class="info-row"><div class="k">目标对象</div><div>Lead#3</div></div>
+                  <div class="info-row"><div class="k">是否写库</div><div>否</div></div>
+                  <div class="info-row"><div class="k">是否需要确认</div><div>是</div></div>
+                  <div class="info-row"><div class="k">当前结果</div><div>待确认</div></div>
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>链路时间线</h4>
+                <div class="timeline">
+                  <div class="timeline-item">
+                    <div class="step">步骤 1</div>
+                    <div class="main">用户发起自然语言请求</div>
+                    <div class="desc">输入：“把这条线索转成客户”。</div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="step">步骤 2</div>
+                    <div class="main">AI 路由识别为转客户</div>
+                    <div class="desc">命中页面上下文 Lead#3，进入对象与权限校验。</div>
+                  </div>
+                  <div class="timeline-item">
+                    <div class="step">步骤 3</div>
+                    <div class="main">返回待确认动作</div>
+                    <div class="desc">前端展示确认卡片，等待用户显式确认。</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>相关消耗</h4>
+                <div class="info-list">
+                  <div class="info-row"><div class="k">输入消耗</div><div>760</div></div>
+                  <div class="info-row"><div class="k">输出消耗</div><div>260</div></div>
+                  <div class="info-row"><div class="k">总消耗</div><div><strong>1020</strong></div></div>
+                  <div class="info-row"><div class="k">调用耗时</div><div>1540ms</div></div>
+                </div>
+              </div>
+
+              <div class="impact-modal">
+                <h5>写库影响详情预览</h5>
+                <div class="impact-grid">
+                  <div class="impact-row">- 新建对象：Customer#121</div>
+                  <div class="impact-row">- 新建对象：Contact#88</div>
+                  <div class="impact-row">- 更新对象：Lead#3</div>
+                  <div class="impact-row">- Lead#3：converted_customer_id 空 → 121</div>
+                  <div class="impact-row">- 上游关联动作：A-20260612-001283</div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const buttons = document.querySelectorAll(".switch-btn");
+    const pages = document.querySelectorAll(".page");
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.getAttribute("data-target");
+        buttons.forEach((item) => item.classList.remove("active"));
+        pages.forEach((page) => page.classList.remove("active"));
+        button.classList.add("active");
+        document.getElementById(target).classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>

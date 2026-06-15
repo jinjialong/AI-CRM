@@ -1,0 +1,59 @@
+{
+  "dataset_id": "assistant-token-smoke-v1",
+  "description": "AI 助手真实 token 与稳定性首批 smoke 数据集",
+  "cases": [
+    {
+      "case_id": "LL-01",
+      "title": "查询我的线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 2,
+      "turns": [
+        {
+          "message": "我的线索",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_list"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CL-01",
+      "title": "一句话完整创建线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 2,
+      "turns": [
+        {
+          "message": "帮我创建一个线索，公司名称验收科技A，联系人张三，手机号13810000001，备注首轮验收",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CV-01",
+      "title": "详情页上下文转客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 2,
+      "setup": {
+        "lead_search": {
+          "company_name": "华北科技"
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        }
+      ]
+    }
+  ]
+}

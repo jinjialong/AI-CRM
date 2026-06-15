@@ -1,0 +1,278 @@
+{
+  "dataset_id": "assistant-batch4-release-regression-v1",
+  "description": "AI 助手第四批发布前回归：文档 4.4 代表用例，每条重复 5 次",
+  "cases": [
+    {
+      "case_id": "CL-01",
+      "title": "一句话完整创建线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "帮我创建一个线索，公司名称第四批验收科技-{{suffix}}，联系人张三，手机号1381400{{phone_tail}}，备注第四批回归",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CL-06",
+      "title": "第二轮补联系人和手机号",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "帮我建个线索，公司叫第四批北方能源-{{suffix}}",
+          "context": {},
+          "expect": {
+            "result_kind": "message"
+          }
+        },
+        {
+          "message": "联系人李四，手机号1391400{{phone_tail}}",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CL-09",
+      "title": "重复手机号",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "setup": {
+        "create_lead": {
+          "company_name": "第四批重复线索-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第四批重复线索前置",
+          "contacts": [
+            {
+              "name": "张三",
+              "phone": "1381500{{phone_tail}}",
+              "job_title": "测试联系人",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "创建线索，公司叫第四批重复线索-{{suffix}}，联系人张三，手机号1381500{{phone_tail}}",
+          "context": {},
+          "expect": {
+            "result_kind": "message",
+            "equals": {
+              "data.status": "duplicate_found"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "LL-04",
+      "title": "按状态过滤查询线索",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "查询跟进中的线索",
+          "context": {},
+          "expect": {
+            "result_kind": "lead_list",
+            "equals": {
+              "data.filters.status": "跟进中"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CU-03",
+      "title": "按公司名搜索客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "查客户华北科技",
+          "context": {},
+          "expect": {
+            "result_kind": "customer_list",
+            "equals": {
+              "data.filters.search": "华北科技"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "GS-01",
+      "title": "模糊公司名综合查询",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "查一下华北科技",
+          "context": {},
+          "expect": {
+            "result_kind": "global_search",
+            "equals": {
+              "data.filters.search": "华北科技",
+              "data.counts.customers": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CV-02",
+      "title": "详情页上下文发起转客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "setup": {
+        "create_lead": {
+          "company_name": "第四批转客户线索A-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第四批转客户前置",
+          "contacts": [
+            {
+              "name": "前置张三",
+              "phone": "1381600{{phone_tail}}",
+              "job_title": "招商主管",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CV-05",
+      "title": "确认执行转客户",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "setup": {
+        "create_lead": {
+          "company_name": "第四批转客户线索B-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第四批确认转客户前置",
+          "contacts": [
+            {
+              "name": "前置李四",
+              "phone": "1381700{{phone_tail}}",
+              "job_title": "招商主管",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        },
+        {
+          "confirm_from_previous_draft": true,
+          "expect": {
+            "result_kind": "customer_created"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "CH-01",
+      "title": "普通闲聊",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "你是谁",
+          "context": {},
+          "expect": {
+            "result_kind": "message"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "RW-05",
+      "title": "编码乱码",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "turns": [
+        {
+          "message": "????????",
+          "context": {},
+          "expect": {
+            "result_kind": "message"
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "MO-02",
+      "title": "转客户两轮链路监控",
+      "login": "sales01",
+      "password": "123456",
+      "repeat": 5,
+      "setup": {
+        "create_lead": {
+          "company_name": "第四批监控链路线索-{{suffix}}",
+          "source": "自然流量",
+          "owner_id": 1,
+          "notes": "第四批监控链路前置",
+          "contacts": [
+            {
+              "name": "前置王五",
+              "phone": "1381800{{phone_tail}}",
+              "job_title": "招商主管",
+              "wechat": ""
+            }
+          ]
+        }
+      },
+      "turns": [
+        {
+          "message": "把这条线索转成客户",
+          "context_from_setup": "lead_id",
+          "expect": {
+            "result_kind": "draft_action"
+          }
+        },
+        {
+          "confirm_from_previous_draft": true,
+          "expect": {
+            "result_kind": "customer_created"
+          }
+        }
+      ]
+    }
+  ]
+}

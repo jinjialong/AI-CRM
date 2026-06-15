@@ -235,6 +235,19 @@ td {
   align-items: center;
 }
 
+.filter-grid-8 {
+  display: grid;
+  grid-template-columns: 130px 160px 180px 140px 140px minmax(220px, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.two-panel-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+}
+
 @media (max-width: 960px) {
   .page-main {
     margin-left: 0;
@@ -244,7 +257,9 @@ td {
   .grid-responsive-5,
   .grid-responsive-4,
   .filter-grid-5,
-  .filter-grid-2 {
+  .filter-grid-2,
+  .filter-grid-8,
+  .two-panel-grid {
     grid-template-columns: 1fr;
   }
 }
