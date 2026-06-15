@@ -1,0 +1,8 @@
+{
+  "run_id": "assistant-acceptance-20260615T151542Z",
+  "dataset_id": "assistant-batch4-release-regression-v1",
+  "dataset_path": "testing\\datasets\\acceptance\\assistant_batch4_release_regression.json",
+  "base_url": "http://127.0.0.1:8000",
+  "started_at": "2026-06-15T15:15:42.665506Z",
+  "finished_at": "2026-06-15T15:17:30.581643Z"
+}

@@ -798,6 +798,58 @@ def test_parse_assistant_text_extracts_multiple_contacts_and_notes():
     ]
 
 
+def test_lead_creation_draft_update_is_not_stolen_by_global_search(monkeypatch):
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        user = _create_user(session, login="sales01", name="销售一号")
+        assistant_session = get_or_create_assistant_session(session, user.id, LEAD_CREATION_SCENE)
+        save_assistant_session_draft(
+            session,
+            assistant_session,
+            build_lead_creation_draft(
+                {
+                    "company_name": "第四批北方能源",
+                    "contacts": [],
+                }
+            ),
+            status="active",
+        )
+
+        async def fake_try_openai_assistant(message: str, *, context=None):
+            return {
+                "intent": "create_lead",
+                "reply": "",
+                "confidence": 0.85,
+                "slots": {
+                    "company_name": "",
+                    "contacts": [{"name": "李四", "phone": "13914001601"}],
+                },
+                "next_action": "call_skill",
+                "target_id": None,
+            }
+
+        monkeypatch.setattr(assistant_router_module, "try_openai_assistant", fake_try_openai_assistant)
+        app = _build_test_app(session, user)
+
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/assistant/message",
+                json={
+                    "message": "联系人李四，手机号13914001601",
+                    "session_id": assistant_session.id,
+                    "context": {},
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["result_kind"] == "lead_created"
+        assert payload["usage_meta"]["final_intent"] == "create_lead"
+        assert payload["data"]["lead"]["company_name"] == "第四批北方能源"
+
+
 def test_lead_creation_context_requires_explicit_session_id():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)

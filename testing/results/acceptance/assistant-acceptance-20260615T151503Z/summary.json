@@ -1,0 +1,17 @@
+{
+  "total_runs": 4,
+  "pass_rate": 1,
+  "avg_total_tokens": 562.75,
+  "median_total_tokens": 563.0,
+  "max_total_tokens": 567,
+  "avg_latency_ms": 1417,
+  "median_latency_ms": 1434.0,
+  "max_latency_ms": 1582,
+  "fallback_rate": 0,
+  "cases": [
+    "GS-01",
+    "GS-02",
+    "GS-03",
+    "GS-04"
+  ]
+}

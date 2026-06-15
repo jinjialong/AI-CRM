@@ -413,7 +413,8 @@ async def assistant_message(
         if not usage_meta.get("llm_intent"):
             usage_meta["llm_intent"] = intent
 
-        query_route = resolve_query_route(message)
+        is_lead_draft_update = bool(lead_creation_context and has_meaningful_lead_slots(parsed_slots))
+        query_route = None if is_lead_draft_update else resolve_query_route(message)
         if query_route:
             route_intent = str(query_route.get("intent", "")).strip()
             if route_intent and intent != route_intent:
